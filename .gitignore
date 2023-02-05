@@ -33,6 +33,7 @@
 
 # Output files
 *.csv
+*.txt
 *.gmon
 
 gsim
