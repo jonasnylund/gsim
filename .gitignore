@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Output files
+*.csv
+*.gmon
+
+*vscode*
