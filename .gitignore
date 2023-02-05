@@ -35,4 +35,5 @@
 *.csv
 *.gmon
 
+gsim
 *vscode*
