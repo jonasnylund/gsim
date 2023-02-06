@@ -117,10 +117,13 @@ void Model::updateParticles() {
           reduction(+: num_interactions) \
           reduction(max: max_frequency)
   for (Particle& particle : this->particles) {
+    // Use dynamic timestepping for particles, and only recompute the accelleration for
+    // particles with the highest accelleration each substep.
     if (this->substep_counter % (this->substep_frequency / particle.update_frequency) == 0) {
       numerical_types::ndarray accelleration = {0.0};
       num_interactions += this->tree.getRoot()->computeAccelleration(particle, this->theta, this->epsilon, accelleration);
 
+      // Set the new accelleration and get the preferred new update frequency.
       unsigned int frequency = particle.setAccelleration(accelleration);
 
       // Check if the update frequency should and/or can be changed.
