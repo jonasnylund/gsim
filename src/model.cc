@@ -1,5 +1,6 @@
 #include "model.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -65,12 +66,15 @@ void Model::randomParticles(int num_particles) {
 
 void Model::initialize() {
   this->buildTree();
+  this->substep_counter = 0;
+  this->substep_frequency = 1;
 
   // Initialize the particles current accelleration.
   for (Particle& particle : this->particles) {
       numerical_types::ndarray accelleration = {0.0};
       num_interactions += this->tree.getRoot()->computeAccelleration(particle, this->theta, this->epsilon, accelleration);
       particle.setAccelleration(accelleration);
+      particle.update_frequency = 1;
   }
 }
 
@@ -104,38 +108,45 @@ void Model::updateParticles() {
   unsigned int num_interactions = 0;
   unsigned int max_frequency = 1;
 
-  // Compute the 
-  numerical_types::real substep_length = (
-    1.0 / static_cast<numerical_types::real>(this->substep_frequency));
-  const numerical_types::real dtime = this->dtime * substep_length;
-  numerical_types::real substep_progress = (
-    static_cast<numerical_types::real>(this->substep_counter) * substep_length);
-
-  if (this->dtime < 0) {
-    substep_progress = 1 - substep_progress;
-    substep_length = -substep_length;
-  } 
+  const numerical_types::real dtime = this->dtime / this->substep_frequency;
+  // Update frequencies can only be lowered on even substeps to not loose steps.
+  const bool substep_is_even = this->substep_counter % 2 == 0;
 
   #pragma omp parallel for \
           schedule(static) \
           reduction(+: num_interactions) \
           reduction(max: max_frequency)
   for (Particle& particle : this->particles) {
-    // Step the particle position and velocity.
-    particle.update(dtime, substep_progress, substep_length);
-
     if (this->substep_counter % (this->substep_frequency / particle.update_frequency) == 0) {
-      // Update the particles accelleration.
       numerical_types::ndarray accelleration = {0.0};
       num_interactions += this->tree.getRoot()->computeAccelleration(particle, this->theta, this->epsilon, accelleration);
 
       unsigned int frequency = particle.setAccelleration(accelleration);
-      particle.update_frequency = frequency;
 
+      // Check if the update frequency should and/or can be changed.
+      if (particle.update_frequency < frequency) {
+        particle.update_frequency = frequency;
+      }
+      else if (particle.update_frequency > frequency && substep_is_even) {
+        particle.update_frequency /= 2;
+      }
+      // Since we only lower the substep_frequency by half on even substeps,
+      // all particles that is not updated have a frequency that is lower or equal
+      // to the possibly new one. Thus we only need to check the particles we
+      // update.
       if (max_frequency < particle.update_frequency) {
         max_frequency = particle.update_frequency;
       }
     }
+    // Step the particle position and velocity.
+    const numerical_types::real substep_length = 1.0 / static_cast<numerical_types::real>(particle.update_frequency);
+    // substep_progress is this particles amount of progress made towards its next
+    // accelleration computation, the the substep_length is the progress to be made
+    // this iteration.
+    const numerical_types::real substep_progress = 
+      static_cast<numerical_types::real>(this->substep_counter % particle.update_frequency) * substep_length;
+
+    particle.update(dtime, substep_progress, substep_length);
   }
 
   // If the highest update frequency changed, we update the counter to reflect.
@@ -144,7 +155,7 @@ void Model::updateParticles() {
     this->substep_counter *= ratio;
     this->substep_frequency = max_frequency;
   }
-  else if (this->substep_frequency > max_frequency && this->substep_counter % 2 == 0) {
+  else if (this->substep_frequency > max_frequency && substep_is_even) {
     this->substep_frequency /= 2;
     this->substep_counter /= 2;
   }
@@ -167,8 +178,6 @@ void Model::step(numerical_types::real time) {
   numerical_types::real endtime = this->time + time;
   while (std::abs(this->time - endtime) > std::abs(this->dtime)) {
     this->substep_counter = 0;
-    this->substep_frequency = 1;
-    Particle::reset(this->particles);
 
     while (this->substep_counter < this->substep_frequency) {
       this->buildTree();

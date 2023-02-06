@@ -63,6 +63,9 @@ public:
     }
   }
 
+  inline numerical_types::real mass() const { return this->total_mass; }
+  inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
+
  protected:
 
   numerical_types::ndarray center;

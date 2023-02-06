@@ -62,9 +62,9 @@ void Particle::update(numerical_types::real dt,
     const numerical_types::real a1 = this->accelleration[i] + this->delta_accelleration[i] * substep_progress;
     const numerical_types::real a2 = a1 + this->delta_accelleration[i] * substep_length;
 
-    this->velocity[i] += a1 * dt * one_half * substep_length;
-    this->position[i] += this->velocity[i] * dt * substep_length;
-    this->velocity[i] += a2 * dt * one_half * substep_length;
+    this->velocity[i] += a1 * dt * one_half;
+    this->position[i] += this->velocity[i] * dt;
+    this->velocity[i] += a2 * dt * one_half;
   }
 }
 

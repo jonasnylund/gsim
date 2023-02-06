@@ -173,8 +173,8 @@ void Tree::rebuild(const std::vector<Particle>& particles) {
 void Tree::update(const std::vector<Particle>& particles) {
   this->root_node->clear();
   for (const Particle& particle: particles) {
-    // this->add(&particle);
-    this->root_node->add(&particle);
+    this->add(&particle);
+    // this->root_node->add(&particle);
   }
 }
 

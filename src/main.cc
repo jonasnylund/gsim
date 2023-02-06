@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
   int num_particles = 10;
   int num_iterations = 1000;
   numerical_types::real theta = 0.5;
-  numerical_types::real epsilon = 0.2;
+  numerical_types::real epsilon = 1.0;
   numerical_types::real dt = 0.01;
   bool verbose = true;
 
