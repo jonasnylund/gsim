@@ -61,6 +61,7 @@ class Model {
   unsigned int substep_counter = 0;
   Timer* timer;
 
+  numerical_types::real total_mass = 0.0;
 };
 
 }  // namespace model

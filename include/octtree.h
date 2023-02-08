@@ -43,6 +43,10 @@ public:
 
   void addMass(numerical_types::real mass, const numerical_types::ndarray& position);
 
+  // Recursively computes the total mass and center of mass
+  // of this node and all subnodes.
+  void aggregateQuantities();
+
   // Compute the accelleration due to gravity for the given position. Counts and returns
   // the number of interactions used to produce the result.
   int computeAccelleration(
@@ -78,6 +82,8 @@ public:
   
   numerical_types::ndarray center_of_mass = {0.0};
   numerical_types::real total_mass = 0.0;
+
+  friend class Tree;
 };
 
 

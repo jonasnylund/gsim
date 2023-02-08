@@ -1,5 +1,6 @@
 #include "octtree.h"
 
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <cmath>
@@ -40,17 +41,15 @@ Node* Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
 
 void Node::addMass(numerical_types::real mass, const numerical_types::ndarray& position) {
   this->total_mass += mass;
-  numerical_types::real com_scale = mass / this->total_mass;
+  const numerical_types::real com_scale = mass / this->total_mass;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
+    this->center_of_mass[i] *= (1.0 - com_scale);
     this->center_of_mass[i] += position[i] * com_scale;
   }
-  this->num_particles_contained++;
 }
 
 void Node::add(const Particle* particle) {
-  // Update internal state
-  this->addMass(particle->mass, particle->position);
-  
+  this->num_particles_contained++;
   // If this is the first particle added, we are currently a leaf node.
   if (this->num_particles_contained == 1) {
     this->particle = particle;
@@ -70,6 +69,23 @@ void Node::add(const Particle* particle) {
   this->getSubnode(indices)->add(particle);
 }
 
+void Node::aggregateQuantities() {
+  if (this->particle != nullptr) {
+    this->total_mass = particle->mass;
+    this->center_of_mass = particle->position;
+    return;
+  }
+
+  this->total_mass = 0.0;
+  for (int i = 0; i < num_subnodes; i++) {
+    if (this->children[i] != nullptr &&
+        this->children[i]->num_particles_contained > 0){
+      this->children[i]->aggregateQuantities();
+      this->addMass(this->children[i]->total_mass, this->children[i]->center_of_mass);
+    }
+  }
+}
+
 void Node::clear() {
   this->particle = nullptr;
   this->num_particles_contained = 0;
@@ -77,7 +93,8 @@ void Node::clear() {
   memset(&this->center_of_mass[0], 0.0, numerical_types::ndarray_bytes_size);
 
   for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i] != nullptr && this->children[i]->num_particles_contained > 0) {
+    if (this->children[i] != nullptr &&
+        this->children[i]->num_particles_contained > 0) {
       this->children[i]->clear();
     }
   }
@@ -164,18 +181,16 @@ void Tree::rebuild(const std::vector<Particle>& particles) {
   // Center the root node on the average position of all the particles.
   // This should balance the tree somewhat when a few particles are far away. 
   this->root_node.reset(new Node(average, width, nullptr));
-  // Add all particles to the tree recursively.
-  for (const Particle& particle : particles) {
-    this->root_node->add(&particle);
-  }
+  // Add all particles to the tree.
+  this->update(particles);
 }
 
 void Tree::update(const std::vector<Particle>& particles) {
   this->root_node->clear();
   for (const Particle& particle: particles) {
     this->add(&particle);
-    // this->root_node->add(&particle);
   }
+  this->root_node->aggregateQuantities();
 }
 
 Node* Tree::getRoot() const {
@@ -188,8 +203,8 @@ void Tree::add(const Particle* particle) {
   Node* current_node = this->root_node.get();
 
   bool indices[numerical_types::num_dimensions];
-  while (current_node->getNumContainedParticles() > 1) {
-    current_node->addMass(particle->mass, particle->position);
+  while (current_node->num_particles_contained > 1) {
+    current_node->num_particles_contained++;
 
     current_node->indexOf(particle, indices);
     current_node = current_node->getSubnode(indices);

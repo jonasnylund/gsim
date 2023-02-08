@@ -56,11 +56,11 @@ void Model::randomParticles(int num_particles) {
   Particle big;
   big.mass = 1.5 * std::sqrt(num_particles);
 
-  numerical_types::real total_mass = big.mass;
+  this->total_mass = big.mass;
   this->particles[0] = big;
   for (int i = 1; i < num_particles; i++) {
-    this->particles[i] = randomParticle(total_mass);
-    //total_mass += this->particles[i].mass;
+    this->particles[i] = randomParticle(big.mass);
+    this->total_mass += this->particles[i].mass;
   }
 }
 
