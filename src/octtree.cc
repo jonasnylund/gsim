@@ -89,8 +89,6 @@ void Node::aggregateQuantities() {
 void Node::clear() {
   this->particle = nullptr;
   this->num_particles_contained = 0;
-  this->total_mass = 0;
-  memset(&this->center_of_mass[0], 0.0, numerical_types::ndarray_bytes_size);
 
   for (int i = 0; i < num_subnodes; i++) {
     if (this->children[i] != nullptr &&
@@ -132,47 +130,49 @@ int Node::computeAccelleration(
   if (this->particle == &particle) {
     return num_calculations;
   }
-
-  // Calculate the distance between the the object and the cell.
-  numerical_types::real distance_sq = 0;
-  for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    const numerical_types::real d = this->center[i] - particle.position[i];
-    distance_sq += d * d;
-  }
-
-  // The closest a particle in this node can be to the given particle is
-  // the distance between the given particle and the node's center, subtract
-  // the hypothenuse from the node center to its corners. In N dimensions,
-  // this is sqrt(N * (width / 2) ^ 2).
-  // We keep all values squared though to avoid computing the sqrt.
-  constexpr numerical_types::real one_forth = 0.25;
-  const numerical_types::real width_sq = this->width * this->width;
-  distance_sq -= one_forth * numerical_types::num_dimensions * width_sq;
-  // If we have subnodes and the particle is close.
-  if (this->particle == nullptr && theta * distance_sq < width_sq) {
-    for (int i = 0; i < num_subnodes; i++) {
-      if (this->children[i] != nullptr &&
-      this->children[i]->num_particles_contained > 0)
-        num_calculations += this->children[i]->computeAccelleration(
-          particle, theta, epsilon, result);
+  else if (this->particle == nullptr) {
+    // Calculate the distance between the the object and the cell.
+    numerical_types::real distance_sq = 0;
+    for (int i = 0; i < numerical_types::num_dimensions; i++) {
+      const numerical_types::real d = this->center[i] - particle.position[i];
+      distance_sq += d * d;
     }
-    return num_calculations;
+
+    // The closest a particle in this node can be to the given particle is
+    // the distance between the given particle and the node's center, subtract
+    // the hypothenuse from the node center to its corners. In N dimensions,
+    // this is sqrt(N * (width / 2) ^ 2).
+    // We keep all values squared though to avoid computing the sqrt.
+    constexpr numerical_types::real one_forth = 0.25;
+    const numerical_types::real width_sq = this->width * this->width;
+    distance_sq -= one_forth * numerical_types::num_dimensions * width_sq;
+    // If we have subnodes and the particle is close.
+    if (theta * distance_sq < width_sq) {
+      for (int i = 0; i < num_subnodes; i++) {
+        if (this->children[i] != nullptr &&
+            this->children[i]->num_particles_contained > 0)
+          num_calculations += this->children[i]->computeAccelleration(
+            particle, theta, epsilon, result);
+      }
+      return num_calculations;
+    }
   }
 
   // Recalculate the distance to center of mass, not center of the cell.
   numerical_types::ndarray distance_array;
-  distance_sq = 0;
+  numerical_types::real distance_sq = epsilon;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
     distance_array[i] = particle.position[i] - this->center_of_mass[i];
     distance_sq += distance_array[i] * distance_array[i];
   }
-  numerical_types::real distance_sq_inv = 1 / (distance_sq + epsilon);
+  numerical_types::real distance_sq_inv = 1 / distance_sq;
   // Compute the accelleration due to gravity.
   numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
   numerical_types::real force = numerical_types::G * this->total_mass * distance_sq_inv;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
     result[i] -= force * distance_array[i] * distance_inv;
   }
+
   return ++num_calculations;
 }
 
