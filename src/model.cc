@@ -49,6 +49,7 @@ Particle randomParticle(numerical_types::real pseudo_mass) {
 }  // namespace
 
 void Model::randomParticles(int num_particles) {
+  assert(num_particles > 0);
   std::srand(12345);
 
   this->particles.resize(num_particles);
@@ -102,6 +103,10 @@ void Model::buildTree() {
 }
 
 void Model::updateParticles() {
+  assert(this->substep_counter >= 0);
+  assert(this->substep_counter < this->substep_frequency);
+  assert(this->substep_frequency > 0);
+
   if (this->timer != nullptr)
     this->timer->start(Timers::PART);
 
@@ -205,10 +210,12 @@ void Model::setTimer(Timer* timer) {
 }
 
 void Model::setEpsilon(numerical_types::real epsilon) {
+  assert(epsilon >= 0.0);
   this->epsilon = epsilon;
 }
 
 void Model::setTheta(numerical_types::real theta) {
+  assert(theta >= 0);
   this->theta = theta;
 }
 
