@@ -55,7 +55,7 @@ void Model::randomParticles(int num_particles) {
   this->particles.resize(num_particles);
 
   Particle big;
-  big.mass = 1.5 * std::sqrt(num_particles);
+  big.mass = static_cast<numerical_types::real>(num_particles) / 10.0;
 
   this->total_mass = big.mass;
   this->particles[0] = big;
@@ -73,7 +73,8 @@ void Model::initialize() {
   // Initialize the particles current accelleration.
   for (Particle& particle : this->particles) {
       numerical_types::ndarray accelleration = {0.0};
-      num_interactions += this->tree.getRoot()->computeAccelleration(particle, this->theta, this->epsilon, accelleration);
+      num_interactions += this->tree.getRoot()->computeAccelleration(
+          particle, this->theta, this->epsilon, accelleration);
       particle.setAccelleration(accelleration);
       particle.update_frequency = 1;
   }
@@ -83,14 +84,12 @@ void Model::buildTree() {
   if (this->timer != nullptr)
     this->timer->start(Timers::TREE);
 
-  std::array<numerical_types::ndarray, 3> stats = Particle::positionExtent(this->particles);
-  
-  if (this->tree.getRoot() != nullptr && 
-      this->tree.getRoot()->contains(stats[1]) &&
-      this->tree.getRoot()->contains(stats[2])) {
+  if (this->tree.getRoot() != nullptr) {
     // If min and max extent of particle positions still lies inside the
     // root node, reuse the tree.
-    this->tree.update(this->particles);
+    if (!this->tree.update(this->particles)) {
+      this->num_rebuilds++;
+    }
   }
   else {
     // If particles lie outside the tree, we must rebuild the structure. 

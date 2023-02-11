@@ -48,11 +48,13 @@ void Node::addMass(numerical_types::real mass, const numerical_types::ndarray& p
   }
 }
 
-void Node::add(const Particle* particle) {
+void Node::add(Particle* particle) {
   this->num_particles_contained++;
   // If this is the first particle added, we are currently a leaf node.
   if (this->num_particles_contained == 1) {
+    assert(this->particle == nullptr);
     this->particle = particle;
+    this->particle->containing_node = this;
     return;
   }
 
@@ -71,12 +73,14 @@ void Node::add(const Particle* particle) {
 
 void Node::aggregateQuantities() {
   if (this->particle != nullptr) {
+    assert(this->num_particles_contained == 1);
     this->total_mass = particle->mass;
     this->center_of_mass = particle->position;
     return;
   }
 
   this->total_mass = 0.0;
+  this->center_of_mass.fill(0.0);
   for (int i = 0; i < num_subnodes; i++) {
     if (this->children[i] != nullptr &&
         this->children[i]->num_particles_contained > 0){
@@ -87,12 +91,14 @@ void Node::aggregateQuantities() {
 }
 
 void Node::clear() {
+  if (this->particle != nullptr)
+    this->particle->containing_node = nullptr;
+
   this->particle = nullptr;
   this->num_particles_contained = 0;
 
   for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i] != nullptr &&
-        this->children[i]->num_particles_contained > 0) {
+    if (this->children[i] != nullptr) {
       this->children[i]->clear();
     }
   }
@@ -176,7 +182,7 @@ int Node::computeAccelleration(
   return ++num_calculations;
 }
 
-void Tree::rebuild(const std::vector<Particle>& particles) {
+void Tree::rebuild(std::vector<Particle>& particles) {
   // Calculate the extent of the boundingbox of all particles.
   std::array<numerical_types::ndarray, 3> stats = Particle::positionExtent(particles);
   
@@ -198,25 +204,40 @@ void Tree::rebuild(const std::vector<Particle>& particles) {
   // This should balance the tree somewhat when a few particles are far away. 
   this->root_node.reset(new Node(average, width, nullptr));
   // Add all particles to the tree.
-  this->update(particles);
-}
-
-void Tree::update(const std::vector<Particle>& particles) {
-  this->root_node->clear();
-  for (const Particle& particle: particles) {
-    this->add(&particle);
+  for (Particle& particle: particles) {
+    this->add(&particle, this->root_node.get());
   }
   this->root_node->aggregateQuantities();
+}
+
+bool Tree::update(std::vector<Particle>& particles) {
+  assert(this->root_node.get() != nullptr);
+  bool rebuild_required = false;
+
+  // Attempt to update the tree, rebuilding if required.
+  for (Particle& particle: particles) {
+    if (!this->relocate(&particle)) {
+      rebuild_required = true;
+      break;
+    }
+  }
+  if (rebuild_required) {
+    this->rebuild(particles);
+  }
+  else{
+    this->root_node->aggregateQuantities();
+  }
+  return !rebuild_required;
 }
 
 Node* Tree::getRoot() const {
   return this->root_node.get();
 }
 
-void Tree::add(const Particle* particle) {
+void Tree::add(Particle* particle, Node* root_node) {
   // Walks the tree until a leaf node is found and adds the particle to it.
-
-  Node* current_node = this->root_node.get();
+  assert(root_node != nullptr);
+  Node* current_node = root_node;
 
   bool indices[numerical_types::num_dimensions];
   while (current_node->num_particles_contained > 1) {
@@ -229,8 +250,59 @@ void Tree::add(const Particle* particle) {
   current_node->add(particle);
 }
 
+bool Tree::relocate(Particle* particle) {
+  Node* node = particle->containing_node;
+  assert(node != nullptr);
+
+  int i = 0;
+  // Move the particle up in the tree if the parent node only
+  // contains this particle.
+  while (node->parent != nullptr &&
+         node->parent->num_particles_contained == node->num_particles_contained) {
+    i++;
+    node->num_particles_contained--;
+    node = node->parent;
+  }
+  // Move the particle up in the tree if the current node does not
+  // contain the particle position.
+  while (node != nullptr && !node->contains(particle->position)) {
+    i++;
+    node->num_particles_contained--;
+    node = node->parent;
+  }
+  if (node == nullptr)
+    return false;
+  // Don't add the particle again if the node does not
+  // change from any of the above.
+  if (node == particle->containing_node) {
+    return true;
+  }
+  // Subtract the particle from the node since adding it
+  // will add one particle again.
+  node->num_particles_contained--;
+  particle->containing_node->particle = nullptr;
+  particle->containing_node = nullptr;
+
+  this->add(particle, node);
+  return true;
+}
+
 void Tree::clear() {
   this->root_node->clear();
+}
+
+void Node::print(int depth, int index) const {
+  std::string space("");
+  for (int i = 0; i < depth; i++){
+    space += " ";
+  }
+
+  printf("%s[%d] #%d: %d - %.4f\n", space.c_str(), depth, index, this->num_particles_contained, this->total_mass);
+  for (int i = 0; i < num_subnodes; i++) {
+    if (this->children[i] != nullptr) {
+      this->children[i]->print(depth + 1, i);
+    }
+  }
 }
 
 }  // namespace model

@@ -13,8 +13,8 @@
 
 
 int main(int argc, char *argv[]) {
-  int num_particles = 10;
-  int num_iterations = 1000;
+  int num_particles = 300;
+  int num_iterations = 300;
   numerical_types::real theta = 0.5;
   numerical_types::real epsilon = 1.0;
   numerical_types::real dt = 0.01;

@@ -28,7 +28,7 @@ class Particle {
   numerical_types::ndarray delta_accelleration;
 
   numerical_types::real mass;
-  unsigned short update_frequency = 1;
+  unsigned int update_frequency = 1;
   Node* containing_node = nullptr;
 };
 

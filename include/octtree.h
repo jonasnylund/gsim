@@ -30,7 +30,7 @@ public:
     Node* parent);
 
   // Add a particle to this node.
-  void add(const Particle* particle);
+  void add(Particle* particle);
 
   // Clear all particles from this node and all child nodes.
   void clear();
@@ -67,6 +67,8 @@ public:
     }
   }
 
+  void print(int depth, int index) const;
+
   inline numerical_types::real mass() const { return this->total_mass; }
   inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
 
@@ -77,7 +79,7 @@ public:
 
   Node* parent = nullptr;
   std::array<std::unique_ptr<Node>, num_subnodes> children;
-  const Particle* particle = nullptr;
+  Particle* particle = nullptr;
   int num_particles_contained = 0;
   
   numerical_types::ndarray center_of_mass = {0.0};
@@ -90,11 +92,18 @@ public:
 class Tree {
  public:
   // Builds and populates a new tree from a list of particles.
-  void rebuild(const std::vector<Particle>& particles);
-  void update(const std::vector<Particle>& particles);
+  void rebuild(std::vector<Particle>& particles);
+  // Attempts to update the tree without reallocating. Returns
+  // true on success, and false if the tree required rebuilding.
+  bool update(std::vector<Particle>& particles);
 
   // Add a particle to the tree.
-  void add(const Particle* particle);
+  void add(Particle* particle, Node* root);
+
+  // Updates a particles position in the tree, moving it up until
+  // either a cell containing it is found, or the root node
+  // is reached.
+  bool relocate(Particle* particle);
 
   // Clear all particles from the tree.
   void clear();
