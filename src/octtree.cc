@@ -35,6 +35,7 @@ Node* Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
       center[i] = this->center[i] - half_width + this->width * indices[i];
     }
     this->children[linear_index] = std::make_unique<Node>(center, half_width, this);
+    this->children_available[this->num_children++] = linear_index;
   }
 
   return this->children[linear_index].get();
@@ -74,19 +75,18 @@ void Node::add(Particle* particle) {
 
 void Node::aggregateQuantities() {
   if (this->particle != nullptr) {
-    assert(this->num_particles_contained == 1);
     this->total_mass = particle->mass;
     this->center_of_mass = particle->position;
     return;
   }
 
   this->total_mass = 0.0;
-  this->center_of_mass.fill(0.0);
   for (int i = 0; i < num_subnodes; i++) {
     if (this->children[i] != nullptr &&
         this->children[i]->num_particles_contained > 0){
       this->children[i]->aggregateQuantities();
-      this->addMass(this->children[i]->total_mass, this->children[i]->center_of_mass);
+      this->addMass(this->children[i]->total_mass,
+                    this->children[i]->center_of_mass);
     }
   }
 }
@@ -116,14 +116,23 @@ bool Node::contains(const numerical_types::ndarray& point) const {
 }
 
 void Node::prune(int depth) {
-  for (int i = 0; i < num_subnodes; i++) {
-    if (depth <= 0 && this->children[i] != nullptr) {
-      if (this->children[i]->num_particles_contained == 0) {
-        this->children[i].release();
+  for (int i = 0; i < this->num_children; i++) {
+    const int index = this->children_available[i];
+    if (depth <= 0) {
+      if (this->children[index]->num_particles_contained == 0) {
+        this->children[index].release();
       }
     }
+    else {
+      this->children[index]->prune(depth - 1);
+    }
+  }
+  // Reset the available children index.
+  this->num_children = 0;
+  this->children_available.fill(0);
+  for (int i = 0; i < num_subnodes; i++) {
     if (this->children[i] != nullptr) {
-      this->children[i]->prune(depth - 1);
+      this->children_available[this->num_children++] = i;
     }
   }
 }
