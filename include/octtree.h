@@ -81,6 +81,7 @@ public:
   std::array<std::unique_ptr<Node>, num_subnodes> children;
   Particle* particle = nullptr;
   int num_particles_contained = 0;
+  bool dirty = true;
   
   numerical_types::ndarray center_of_mass = {0.0};
   numerical_types::real total_mass = 0.0;
@@ -100,13 +101,19 @@ class Tree {
   // Add a particle to the tree.
   void add(Particle* particle, Node* root);
 
+  int computeAccelleration(
+    const Particle& particle,
+    numerical_types::real theta,
+    numerical_types::real epsilon,
+    numerical_types::ndarray& result) const;
+
   // Updates a particles position in the tree, moving it up until
   // either a cell containing it is found, or the root node
   // is reached.
   bool relocate(Particle* particle);
 
-  // Clear all particles from the tree.
-  void clear();
+  // Clear the state of each node.
+  void zero();
 
   Node* getRoot() const;
 

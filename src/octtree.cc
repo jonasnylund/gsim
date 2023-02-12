@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cmath>
 #include <memory>
+#include <stack>
 #include <vector>
 
 #include "particle.h"
@@ -174,9 +175,9 @@ int Node::computeAccelleration(
   numerical_types::real distance_sq_inv = 1 / distance_sq;
   // Compute the accelleration due to gravity.
   numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
-  numerical_types::real force = numerical_types::G * this->total_mass * distance_sq_inv;
+  numerical_types::real accelleration = this->total_mass * distance_sq_inv;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    result[i] -= force * distance_array[i] * distance_inv;
+    result[i] -= accelleration * distance_array[i] * distance_inv;
   }
 
   return ++num_calculations;
@@ -225,6 +226,8 @@ bool Tree::update(std::vector<Particle>& particles) {
     this->rebuild(particles);
   }
   else{
+    // this->zero();
+    // this->aggregateQuantities();
     this->root_node->aggregateQuantities();
   }
   return !rebuild_required;
@@ -250,15 +253,29 @@ void Tree::add(Particle* particle, Node* root_node) {
   current_node->add(particle);
 }
 
+int Tree::computeAccelleration(
+    const Particle& particle,
+    numerical_types::real theta,
+    numerical_types::real epsilon,
+    numerical_types::ndarray& result) const {
+
+  int computations = this->root_node->computeAccelleration(particle, theta, epsilon, result);
+
+  for (int i = 0; i < numerical_types::num_dimensions; i++) {
+    result[i] *= numerical_types::G;
+  }
+  return computations;
+}
+
 bool Tree::relocate(Particle* particle) {
   Node* node = particle->containing_node;
   assert(node != nullptr);
 
   int i = 0;
   // Move the particle up in the tree if the parent node only
-  // contains this particle.
+  // contains particles in this node.
   while (node->parent != nullptr &&
-         node->parent->num_particles_contained == node->num_particles_contained) {
+         node->parent->num_particles_contained == 1) {
     i++;
     node->num_particles_contained--;
     node = node->parent;
@@ -270,8 +287,10 @@ bool Tree::relocate(Particle* particle) {
     node->num_particles_contained--;
     node = node->parent;
   }
-  if (node == nullptr)
+  // If the root node did not contain the particle, we cannot add it.
+  if (node == nullptr){
     return false;
+  }
   // Don't add the particle again if the node does not
   // change from any of the above.
   if (node == particle->containing_node) {
@@ -287,8 +306,21 @@ bool Tree::relocate(Particle* particle) {
   return true;
 }
 
-void Tree::clear() {
-  this->root_node->clear();
+void Tree::zero() {
+  std::stack<Node*> stack;
+  stack.push(this->root_node.get());
+
+  while(!stack.empty()) {
+    Node* current = stack.top();
+    stack.pop();
+    current->total_mass = 0.0;
+    current->dirty = true;
+
+    for (int i = 0; i < num_subnodes; i++) {
+      if (current->children[i] != nullptr)
+        stack.push(current->children[i].get());
+    }
+  }
 }
 
 void Node::print(int depth, int index) const {

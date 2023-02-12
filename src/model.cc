@@ -55,7 +55,7 @@ void Model::randomParticles(int num_particles) {
   this->particles.resize(num_particles);
 
   Particle big;
-  big.mass = static_cast<numerical_types::real>(num_particles) / 10.0;
+  big.mass = 10.0 + static_cast<numerical_types::real>(num_particles) / 10.0;
 
   this->total_mass = big.mass;
   this->particles[0] = big;
@@ -73,7 +73,7 @@ void Model::initialize() {
   // Initialize the particles current accelleration.
   for (Particle& particle : this->particles) {
       numerical_types::ndarray accelleration = {0.0};
-      num_interactions += this->tree.getRoot()->computeAccelleration(
+      num_interactions += this->tree.computeAccelleration(
           particle, this->theta, this->epsilon, accelleration);
       particle.setAccelleration(accelleration);
       particle.update_frequency = 1;
@@ -125,7 +125,8 @@ void Model::updateParticles() {
     // particles with the highest accelleration each substep.
     if (this->substep_counter % (this->substep_frequency / particle.update_frequency) == 0) {
       numerical_types::ndarray accelleration = {0.0};
-      num_interactions += this->tree.getRoot()->computeAccelleration(particle, this->theta, this->epsilon, accelleration);
+      num_interactions += this->tree.computeAccelleration(
+          particle, this->theta, this->epsilon, accelleration);
 
       // Set the new accelleration and get the preferred new update frequency.
       unsigned int frequency = particle.setAccelleration(accelleration);
@@ -146,12 +147,13 @@ void Model::updateParticles() {
       }
     }
     // Step the particle position and velocity.
-    const numerical_types::real substep_length = 1.0 / static_cast<numerical_types::real>(particle.update_frequency);
+    const numerical_types::real substep_length = (1.0 /
+      static_cast<numerical_types::real>(particle.update_frequency));
     // substep_progress is this particles amount of progress made towards its next
     // accelleration computation, the the substep_length is the progress to be made
     // this iteration.
-    const numerical_types::real substep_progress = 
-      static_cast<numerical_types::real>(this->substep_counter % particle.update_frequency) * substep_length;
+    const numerical_types::real substep_progress = static_cast<numerical_types::real>(
+      this->substep_counter % particle.update_frequency) * substep_length;
 
     particle.update(dtime, substep_progress, substep_length);
   }
@@ -178,7 +180,7 @@ void Model::step(numerical_types::real time) {
 
   if (this->tree.getRoot() != nullptr) {
     int balanced_depth = static_cast<int>(
-      std::log2(this->particles.size()) / std::log2(num_subnodes) + 1);
+      std::log2(this->particles.size()) / numerical_types::num_dimensions + 1);
     this->tree.getRoot()->prune(balanced_depth);
   }
 
@@ -214,7 +216,7 @@ void Model::setEpsilon(numerical_types::real epsilon) {
 }
 
 void Model::setTheta(numerical_types::real theta) {
-  assert(theta >= 0);
+  assert(theta >= 0.0);
   this->theta = theta;
 }
 
