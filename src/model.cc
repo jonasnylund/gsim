@@ -177,12 +177,10 @@ void Model::updateParticles() {
 void Model::step(numerical_types::real time) {
   if (this->timer != nullptr)
     this->timer->start(Timers::ALL);
-
-  if (this->tree.getRoot() != nullptr) {
-    int balanced_depth = static_cast<int>(
-      std::log2(this->particles.size()) / numerical_types::num_dimensions + 1);
-    this->tree.getRoot()->prune(balanced_depth);
-  }
+  assert(this->tree.getRoot() != nullptr);
+  
+  int balanced_depth = static_cast<int>(
+    std::log2(this->particles.size()) / numerical_types::num_dimensions + 1);
 
   numerical_types::real endtime = this->time + time;
   while (std::abs(this->time - endtime) > std::abs(this->dtime)) {
@@ -197,6 +195,7 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
+  this->tree.getRoot()->prune(balanced_depth);
 
   if (this->timer != nullptr)
     this->timer->stop(Timers::ALL);

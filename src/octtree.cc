@@ -122,7 +122,7 @@ void Node::prune(int depth) {
     const int index = this->children_available[i];
     if (depth <= 0) {
       if (this->children[index]->num_particles_contained == 0) {
-        this->children[index].release();
+        this->children[index].reset();
       }
     }
     else {
@@ -342,15 +342,20 @@ void Tree::write(std::ofstream& file) const {
     Node* current = stack.top();
     stack.pop();
 
-    file << current->width << ", ";
-    for (int i = 0; i < numerical_types::num_dimensions; i++) {
-      file << current->center[i] << ", ";
+    bool has_children = false;
+    for (int i = 0; i < num_subnodes; i++) {
+      if (current->children[i] != nullptr){
+        stack.push(current->children[i].get());
+        has_children = true;
+      }
     }
 
-    for (int i = 0; i < num_subnodes; i++) {
-      if (current->children[i] != nullptr)
-        stack.push(current->children[i].get());
-    }
+    // if (!has_children) {
+      file << current->width << ", ";
+      for (int i = 0; i < numerical_types::num_dimensions; i++) {
+        file << current->center[i] << ", ";
+      }
+    // }
   }
 }
 
