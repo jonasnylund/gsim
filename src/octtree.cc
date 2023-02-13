@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+
+#include <fstream>
 #include <memory>
 #include <stack>
 #include <vector>
@@ -332,16 +334,22 @@ void Tree::zero() {
   }
 }
 
-void Node::print(int depth, int index) const {
-  std::string space("");
-  for (int i = 0; i < depth; i++){
-    space += " ";
-  }
+void Tree::write(std::ofstream& file) const {
+  std::stack<Node*> stack;
+  stack.push(this->root_node.get());
 
-  printf("%s[%d] #%d: %d - %.4f\n", space.c_str(), depth, index, this->num_particles_contained, this->total_mass);
-  for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i] != nullptr) {
-      this->children[i]->print(depth + 1, i);
+  while(!stack.empty()) {
+    Node* current = stack.top();
+    stack.pop();
+
+    file << current->width << ", ";
+    for (int i = 0; i < numerical_types::num_dimensions; i++) {
+      file << current->center[i] << ", ";
+    }
+
+    for (int i = 0; i < num_subnodes; i++) {
+      if (current->children[i] != nullptr)
+        stack.push(current->children[i].get());
     }
   }
 }

@@ -240,6 +240,18 @@ void Model::writeParticles(std::ofstream& file) const {
     this->timer->stop(Timers::IO);
 }
 
+void Model::writeTree(std::ofstream& file) const {
+  if (this->timer != nullptr)
+    this->timer->start(Timers::IO);
+
+  file << this->time << ", ";
+  this->tree.write(file);
+  file << "\n";
+
+  if (this->timer != nullptr)
+    this->timer->stop(Timers::IO);
+}
+
 void Model::printStats() const {
   printf("\n--- Stats for run ---\n");
   if (this->timer != nullptr)

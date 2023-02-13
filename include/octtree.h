@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <fstream>
 #include <memory>
 #include <vector>
 
@@ -67,8 +68,6 @@ public:
     }
   }
 
-  void print(int depth, int index) const;
-
   inline numerical_types::real mass() const { return this->total_mass; }
   inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
 
@@ -118,6 +117,8 @@ class Tree {
   void zero();
 
   Node* getRoot() const;
+
+  void write(std::ofstream& file) const;
 
  protected:
   std::unique_ptr<Node> root_node;

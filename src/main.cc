@@ -20,7 +20,8 @@ int main(int argc, char *argv[]) {
   numerical_types::real dt = 0.01;
   bool verbose = true;
 
-  std::string filename("output.csv");
+  std::string particles_path("particles.csv");
+  std::string tree_path("tree.csv");
 
   int i = 0;
   while (i < argc) {
@@ -31,7 +32,10 @@ int main(int argc, char *argv[]) {
       num_iterations = atoi(argv[++i]);
     }
     else if (strncmp(argv[i], "-o", 2) == 0 || strncmp(argv[i], "--output", 8) == 0) {
-      filename = argv[++i];
+      particles_path = argv[++i];
+    }
+    else if (strncmp(argv[i], "-t", 2) == 0 || strncmp(argv[i], "--tree", 8) == 0) {
+      tree_path = argv[++i];
     }
     else if (strncmp(argv[i], "--theta", 7) == 0) {
       theta = atof(argv[++i]);
@@ -50,10 +54,11 @@ int main(int argc, char *argv[]) {
   }
   if (verbose) {
     printf("Simulating %d particles for %d timesteps\n", num_particles, num_iterations);
-    printf("Writing output to %s\n", filename.c_str());
+    printf("Writing output to %s\n", particles_path.c_str());
   }
 
-  std::ofstream file(filename);
+  std::ofstream particles_file(particles_path);
+  std::ofstream tree_file(tree_path);
 
   model::Timer timer;
   model::Model model;
@@ -67,13 +72,15 @@ int main(int argc, char *argv[]) {
 
   model.randomParticles(num_particles);
   model.initialize();
-  model.writeParticles(file);
+  model.writeParticles(particles_file);
+  model.writeTree(tree_file);
 
   timer.stop(model::Timers::SETUP);
 
   for (int i = 0; i < num_iterations; i++) {
     model.step(1.0);
-    model.writeParticles(file);
+    model.writeParticles(particles_file);
+    model.writeTree(tree_file);
 
     printf("T: %.1f s\r", model.getTime());
     std::fflush(stdout);
@@ -82,7 +89,8 @@ int main(int argc, char *argv[]) {
   printf("T: %.1f s\n", model.getTime());
 
   timer.start(model::Timers::TEARDOWN);
-  file.close();
+  particles_file.close();
+  tree_file.close();
 
   timer.stop(model::Timers::TEARDOWN);
 

@@ -38,8 +38,11 @@ class Model {
   // Return the current time of the simulation.
   numerical_types::real getTime() const;
 
-  // Wraite particle states to the output stream.
+  // Write particle states to the output stream.
   void writeParticles(std::ofstream& file) const;
+
+  // Write the current tree structure to file.
+  void writeTree(std::ofstream& file) const;
 
   // Print timer and counter stats to stdout.
   void printStats() const;
