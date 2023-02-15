@@ -36,8 +36,8 @@ public:
   // Clear all particles from this node and all child nodes.
   void clear();
 
-  // Removes all nodes in the tree with no contiained particles.
-  void prune(int depth = 0);
+  // Removes nodes in the tree with no contiained particles.
+  void prune();
 
   // Checks whether a particle is in the bounding box of this node.
   bool contains(const numerical_types::ndarray& point) const;
@@ -78,8 +78,6 @@ public:
 
   Node* parent = nullptr;
   std::array<std::unique_ptr<Node>, num_subnodes> children;
-  std::array<int, num_subnodes> children_available;
-  int num_children = 0;
   Particle* particle = nullptr;
   int num_particles_contained = 0;
   bool dirty = true;

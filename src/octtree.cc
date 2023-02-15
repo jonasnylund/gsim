@@ -37,7 +37,6 @@ Node* Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
       center[i] = this->center[i] - half_width + this->width * indices[i];
     }
     this->children[linear_index] = std::make_unique<Node>(center, half_width, this);
-    this->children_available[this->num_children++] = linear_index;
   }
 
   return this->children[linear_index].get();
@@ -117,24 +116,17 @@ bool Node::contains(const numerical_types::ndarray& point) const {
   return true;
 }
 
-void Node::prune(int depth) {
-  for (int i = 0; i < this->num_children; i++) {
-    const int index = this->children_available[i];
-    if (depth <= 0) {
-      if (this->children[index]->num_particles_contained == 0) {
-        this->children[index].reset();
-      }
-    }
-    else {
-      this->children[index]->prune(depth - 1);
-    }
-  }
-  // Reset the available children index.
-  this->num_children = 0;
-  this->children_available.fill(0);
+void Node::prune() {
+  const bool do_prune = (this->parent != nullptr &&
+                         this->parent->num_particles_contained == 0);
   for (int i = 0; i < num_subnodes; i++) {
     if (this->children[i] != nullptr) {
-      this->children_available[this->num_children++] = i;
+      if (do_prune) {
+        this->children[i].reset();
+      }
+      else {
+        this->children[i]->prune();
+      }
     }
   }
 }
@@ -161,9 +153,9 @@ int Node::computeAccelleration(
     // the hypothenuse from the node center to its corners. In N dimensions,
     // this is sqrt(N * (width / 2) ^ 2).
     // We keep all values squared though to avoid computing the sqrt.
-    constexpr numerical_types::real one_forth = 0.25;
+    constexpr numerical_types::real ndim_by_four = numerical_types::num_dimensions * 0.25;
     const numerical_types::real width_sq = this->width * this->width;
-    distance_sq -= one_forth * numerical_types::num_dimensions * width_sq;
+    distance_sq -= ndim_by_four * width_sq;
     // If we have subnodes and the particle is close.
     if (theta * distance_sq < width_sq) {
       for (int i = 0; i < num_subnodes; i++) {
@@ -183,10 +175,10 @@ int Node::computeAccelleration(
     distance_array[i] = particle.position[i] - this->center_of_mass[i];
     distance_sq += distance_array[i] * distance_array[i];
   }
-  numerical_types::real distance_sq_inv = 1 / distance_sq;
+  const numerical_types::real distance_sq_inv = 1 / distance_sq;
   // Compute the accelleration due to gravity.
-  numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
-  numerical_types::real accelleration = this->total_mass * distance_sq_inv;
+  const numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
+  const numerical_types::real accelleration = this->total_mass * distance_sq_inv;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
     result[i] -= accelleration * distance_array[i] * distance_inv;
   }
@@ -237,8 +229,6 @@ bool Tree::update(std::vector<Particle>& particles) {
     this->rebuild(particles);
   }
   else{
-    // this->zero();
-    // this->aggregateQuantities();
     this->root_node->aggregateQuantities();
   }
   return !rebuild_required;
@@ -269,7 +259,6 @@ int Tree::computeAccelleration(
     numerical_types::real theta,
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const {
-
   int computations = this->root_node->computeAccelleration(particle, theta, epsilon, result);
 
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
