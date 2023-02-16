@@ -30,19 +30,8 @@ public:
     numerical_types::real width,
     Node* parent);
 
-  // Add a particle to this node.
-  void add(Particle* particle);
-
-  // Clear all particles from this node and all child nodes.
-  void clear();
-
-  // Removes nodes in the tree with no contiained particles.
-  void prune();
-
   // Checks whether a particle is in the bounding box of this node.
   bool contains(const numerical_types::ndarray& point) const;
-
-  void addMass(numerical_types::real mass, const numerical_types::ndarray& position);
 
   // Recursively computes the total mass and center of mass
   // of this node and all subnodes.
@@ -60,6 +49,9 @@ public:
 
   Node* getSubnode(bool indices[numerical_types::num_dimensions]);
 
+  // Removes nodes in the tree with no contiained particles.
+  void prune();
+
   inline void indexOf(
       const Particle* particle,
       bool indices[numerical_types::num_dimensions]) const {
@@ -73,11 +65,21 @@ public:
 
  protected:
 
+  // Add a particle to this node.
+  void add(Particle* particle);
+
+  void addMass(numerical_types::real mass, const numerical_types::ndarray& position);
+
+  void allocateChildren();
+
+  // Clear all particles from this node and all child nodes.
+  void clear();
+
   numerical_types::ndarray center;
   numerical_types::real width;
 
   Node* parent = nullptr;
-  std::array<std::unique_ptr<Node>, num_subnodes> children;
+  std::vector<Node> children;
   Particle* particle = nullptr;
   int num_particles_contained = 0;
   bool dirty = true;
@@ -97,28 +99,31 @@ class Tree {
   // true on success, and false if the tree required rebuilding.
   bool update(std::vector<Particle>& particles);
 
-  // Add a particle to the tree.
-  void add(Particle* particle, Node* root);
-
   int computeAccelleration(
     const Particle& particle,
     numerical_types::real theta,
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const;
 
+  Node* getRoot() const;
+
+  void write(std::ofstream& file) const;
+
+ private:
+  // Add a particle to the tree.
+  void add(Particle* particle, Node* root);
+
   // Updates a particles position in the tree, moving it up until
   // either a cell containing it is found, or the root node
   // is reached.
   bool relocate(Particle* particle);
 
+  // Returns a vector with all nodes at a certain tree depth.
+  std::vector<Node*> getNodesAtDepth(int depth);
+
   // Clear the state of each node.
   void zero();
-
-  Node* getRoot() const;
-
-  void write(std::ofstream& file) const;
-
- protected:
+  void zero(Node* root);
   std::unique_ptr<Node> root_node;
 };
 

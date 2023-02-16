@@ -10,6 +10,8 @@
 #include <stack>
 #include <vector>
 
+#include <omp.h>
+
 #include "particle.h"
 
 namespace model {
@@ -30,16 +32,11 @@ Node* Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
   int linear_index = Node::SubnodeIndex(indices);
 
   // If the node does not yet exist, create it.
-  if (this->children[linear_index] == nullptr) {
-    numerical_types::ndarray center;
-    numerical_types::real half_width = this->width / 2;
-    for (int i = 0; i < numerical_types::num_dimensions; i++) {
-      center[i] = this->center[i] - half_width + this->width * indices[i];
-    }
-    this->children[linear_index] = std::make_unique<Node>(center, half_width, this);
+  if (this->children.empty()) {
+    this->allocateChildren();
   }
 
-  return this->children[linear_index].get();
+  return &this->children[linear_index];
 }
 
 void Node::addMass(numerical_types::real mass, const numerical_types::ndarray& position) {
@@ -74,20 +71,38 @@ void Node::add(Particle* particle) {
   this->getSubnode(indices)->add(particle);
 }
 
+void Node::allocateChildren() {
+  assert(this->children.empty());
+  const numerical_types::real half_width = this->width / 2;
+
+  this->children.reserve(num_subnodes);
+  for (int i = 0; i < num_subnodes; i++) {
+    numerical_types::ndarray center;
+    for (int j = 0; j < numerical_types::num_dimensions; j++) {
+      int index = (i >> j) & 0x1;
+      center[j] = this->center[j] - half_width + this->width * index;
+    }
+    this->children.emplace_back(center, half_width, this);
+  }
+}
+
 void Node::aggregateQuantities() {
+  this->dirty = false;
   if (this->particle != nullptr) {
-    this->total_mass = particle->mass;
-    this->center_of_mass = particle->position;
+    this->total_mass = this->particle->mass;
+    this->center_of_mass = this->particle->position;
     return;
   }
 
   this->total_mass = 0.0;
+  if (this->children.empty()) {
+    return;
+  }
   for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i] != nullptr &&
-        this->children[i]->num_particles_contained > 0){
-      this->children[i]->aggregateQuantities();
-      this->addMass(this->children[i]->total_mass,
-                    this->children[i]->center_of_mass);
+    if (this->children[i].num_particles_contained > 0){
+      this->children[i].aggregateQuantities();
+      this->addMass(this->children[i].total_mass,
+                    this->children[i].center_of_mass);
     }
   }
 }
@@ -99,9 +114,9 @@ void Node::clear() {
   this->particle = nullptr;
   this->num_particles_contained = 0;
 
-  for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i] != nullptr) {
-      this->children[i]->clear();
+  if (!this->children.empty()) {
+    for (int i = 0; i < num_subnodes; i++) {
+      this->children[i].clear();
     }
   }
 }
@@ -117,16 +132,13 @@ bool Node::contains(const numerical_types::ndarray& point) const {
 }
 
 void Node::prune() {
-  const bool do_prune = (this->parent != nullptr &&
-                         this->parent->num_particles_contained == 0);
-  for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i] != nullptr) {
-      if (do_prune) {
-        this->children[i].reset();
-      }
-      else {
-        this->children[i]->prune();
-      }
+  if (this->parent != nullptr &&
+      this->parent->num_particles_contained == 0) {
+    this->children.clear();
+  }
+  else if (!this->children.empty()) {
+    for (int i = 0; i < num_subnodes; i++) {
+      this->children[i].prune();
     }
   }
 }
@@ -158,11 +170,12 @@ int Node::computeAccelleration(
     distance_sq -= ndim_by_four * width_sq;
     // If we have subnodes and the particle is close.
     if (theta * distance_sq < width_sq) {
-      for (int i = 0; i < num_subnodes; i++) {
-        if (this->children[i] != nullptr &&
-            this->children[i]->num_particles_contained > 0)
-          num_calculations += this->children[i]->computeAccelleration(
-            particle, theta, epsilon, result);
+      if (!this->children.empty()) {
+        for (int i = 0; i < num_subnodes; i++) {
+          if (this->children[i].num_particles_contained > 0)
+            num_calculations += this->children[i].computeAccelleration(
+              particle, theta, epsilon, result);
+        }
       }
       return num_calculations;
     }
@@ -211,6 +224,7 @@ void Tree::rebuild(std::vector<Particle>& particles) {
   for (Particle& particle: particles) {
     this->add(&particle, this->root_node.get());
   }
+  // this->aggregateQuantities();
   this->root_node->aggregateQuantities();
 }
 
@@ -229,6 +243,7 @@ bool Tree::update(std::vector<Particle>& particles) {
     this->rebuild(particles);
   }
   else{
+    // this->aggregateQuantities();
     this->root_node->aggregateQuantities();
   }
   return !rebuild_required;
@@ -306,9 +321,37 @@ bool Tree::relocate(Particle* particle) {
   return true;
 }
 
+std::vector<Node*> Tree::getNodesAtDepth(int depth) {
+  assert(depth >= 0);
+
+  if (depth == 0) {
+    return {this->root_node.get()};
+  }
+  std::vector<Node*> parents = this->getNodesAtDepth(depth - 1);
+  std::vector<Node*> children;
+  // Reserv capacity for the largest possible number of children.
+  children.reserve(parents.size() * num_subnodes);
+
+  for (Node* parent : parents) {
+    if (!parent->children.empty()) {
+      for (int i = 0; i < num_subnodes; i++) {
+        children.push_back(&parent->children[i]);
+      }
+    }
+  }
+  // Shrink the vector to the actual number of children.
+  children.shrink_to_fit();
+  return children;
+}
+
 void Tree::zero() {
+  this->zero(this->root_node.get());
+}
+
+void Tree::zero(Node* node) {
+  assert(node != nullptr);
   std::stack<Node*> stack;
-  stack.push(this->root_node.get());
+  stack.push(node);
 
   while(!stack.empty()) {
     Node* current = stack.top();
@@ -316,9 +359,12 @@ void Tree::zero() {
     current->total_mass = 0.0;
     current->dirty = true;
 
+    if (current->children.empty()) {
+      continue;
+    }
     for (int i = 0; i < num_subnodes; i++) {
-      if (current->children[i] != nullptr)
-        stack.push(current->children[i].get());
+      if (!current->children[i].dirty)
+        stack.push(&current->children[i]);
     }
   }
 }
@@ -331,11 +377,9 @@ void Tree::write(std::ofstream& file) const {
     Node* current = stack.top();
     stack.pop();
 
-    bool has_children = false;
-    for (int i = 0; i < num_subnodes; i++) {
-      if (current->children[i] != nullptr){
-        stack.push(current->children[i].get());
-        has_children = true;
+    if (!current->children.empty()) {
+      for (int i = 0; i < num_subnodes; i++) {
+        stack.push(&current->children[i]);
       }
     }
 
