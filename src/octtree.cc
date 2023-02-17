@@ -63,13 +63,13 @@ void Node::add(Particle* particle) {
   bool indices[numerical_types::num_dimensions];
   // If this is the second particle, we must move the first into a subnode as well.
   if (this->particle != nullptr) {
-    this->indexOf(this->particle, indices);
+    this->indexOf(this->particle->position, indices);
     this->getSubnode(indices)->add(this->particle);
     this->particle = nullptr;
   }
 
   // Add the current particle to the respective subnode.
-  this->indexOf(particle, indices);
+  this->indexOf(particle->position, indices);
   this->getSubnode(indices)->add(particle);
 }
 
@@ -201,7 +201,7 @@ int Node::computeAccelleration(
   return ++num_calculations;
 }
 
-
+// Tree
 
 void Tree::rebuild(std::vector<Particle>& particles) {
   // Calculate the extent of the boundingbox of all particles.
@@ -257,20 +257,19 @@ bool Tree::update(std::vector<Particle>& particles) {
   return !rebuild_required;
 }
 
-void Tree::add(Particle* particle, Node* root_node) {
+void Tree::add(Particle* particle, Node* node) {
   // Walks the tree until a leaf node is found and adds the particle to it.
-  assert(root_node != nullptr);
-  Node* current_node = root_node;
+  assert(node != nullptr);
 
   bool indices[numerical_types::num_dimensions];
-  while (current_node->num_particles_contained > 1) {
-    current_node->num_particles_contained++;
+  while (node->num_particles_contained > 1) {
+    node->num_particles_contained++;
 
-    current_node->indexOf(particle, indices);
-    current_node = current_node->getSubnode(indices);
+    node->indexOf(particle->position, indices);
+    node = node->getSubnode(indices);
   }
 
-  current_node->add(particle);
+  node->add(particle);
 }
 
 int Tree::computeAccelleration(

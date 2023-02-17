@@ -13,7 +13,7 @@ namespace model {
 constexpr int num_subnodes = (1 << numerical_types::num_dimensions);
 
 class Node {
-public:
+ public:
 
   // Return the linear index corresponding to the multidimensional index
   // given.
@@ -30,7 +30,7 @@ public:
     numerical_types::real width,
     Node* parent);
 
-  // Checks whether a particle is in the bounding box of this node.
+  // Checks whether a point is in the bounding box of this node.
   bool contains(const numerical_types::ndarray& point) const;
 
   // Recursively computes the total mass and center of mass
@@ -45,30 +45,34 @@ public:
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const;
 
+  // Returns the total number of particles in this node and all its children.
   int getNumContainedParticles() const { return this->num_particles_contained; }
-
-  Node* getSubnode(bool indices[numerical_types::num_dimensions]);
 
   // Removes nodes in the tree with no contiained particles.
   void prune();
 
+
   inline void indexOf(
-      const Particle* particle,
+      const numerical_types::ndarray& position,
       bool indices[numerical_types::num_dimensions]) const {
     for (int i = 0; i < numerical_types::num_dimensions; i++) {
-      indices[i] = this->center[i] < particle->position[i];
+      indices[i] = this->center[i] < position[i];
     }
   }
 
+  // Returns true if this node has child nodes, false otherwise.
   inline bool hasChildren() const { return !this->children.empty(); }
   inline Node* child(int index) { return &this->children[index]; };
   inline const Node* constChild(int index) const { return &this->children[index]; }
 
+  // Returns the total mass of this node.
   inline numerical_types::real mass() const { return this->total_mass; }
+
+  // Returns the combined center of mass of this node.
   inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
 
- protected:
 
+ protected:
   // Add a particle to this node.
   void add(Particle* particle);
 
@@ -78,6 +82,8 @@ public:
 
   // Clear all particles from this node and all child nodes.
   void clear();
+
+  Node* getSubnode(bool indices[numerical_types::num_dimensions]);
 
   numerical_types::ndarray center;
   numerical_types::real width;
@@ -113,9 +119,10 @@ class Tree {
 
   void write(std::ofstream& file) const;
 
+
  private:
   // Add a particle to the tree.
-  void add(Particle* particle, Node* root);
+  void add(Particle* particle, Node* node);
 
   // Updates a particles position in the tree, moving it up until
   // either a cell containing it is found, or the root node
@@ -127,7 +134,8 @@ class Tree {
 
   // Clear the state of each node.
   void zero();
-  void zero(Node* root);
+  void zero(Node* node);
+
   std::unique_ptr<Node> root_node;
 };
 
