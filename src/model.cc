@@ -81,8 +81,7 @@ void Model::initialize() {
 }
 
 void Model::buildTree() {
-  if (this->timer != nullptr)
-    this->timer->start(Timers::TREE);
+  Timer::byName("Tree")->set();
 
   if (this->tree.getRoot() != nullptr) {
     // If min and max extent of particle positions still lies inside the
@@ -97,8 +96,7 @@ void Model::buildTree() {
     this->num_rebuilds++;
   }
 
-  if (this->timer != nullptr)
-    this->timer->stop(Timers::TREE);
+  Timer::byName("Tree")->reset();
 }
 
 void Model::updateParticles() {
@@ -106,8 +104,7 @@ void Model::updateParticles() {
   assert(this->substep_counter < this->substep_frequency);
   assert(this->substep_frequency > 0);
 
-  if (this->timer != nullptr)
-    this->timer->start(Timers::PART);
+  Timer::byName("Particles")->set();
 
   unsigned int num_interactions = 0;
   unsigned int max_frequency = 1;
@@ -170,14 +167,13 @@ void Model::updateParticles() {
   }
   
   this->num_interactions += num_interactions;
-  if (this->timer != nullptr)
-    this->timer->stop(Timers::PART);
+  Timer::byName("Particles")->reset();
 }
 
 void Model::step(numerical_types::real time) {
-  if (this->timer != nullptr)
-    this->timer->start(Timers::ALL);
   assert(this->tree.getRoot() != nullptr);
+  Timer::byName("Timestepping")->set();
+
   this->tree.getRoot()->prune();
   
   numerical_types::real endtime = this->time + time;
@@ -194,8 +190,7 @@ void Model::step(numerical_types::real time) {
     this->time += this->dtime;
   }
 
-  if (this->timer != nullptr)
-    this->timer->stop(Timers::ALL);
+  Timer::byName("Timestepping")->reset();
 }
 
 void Model::setTimeStep(numerical_types::real dtime) {
@@ -221,8 +216,7 @@ numerical_types::real Model::getTime() const {
 }
 
 void Model::writeParticles(std::ofstream& file) const {
-  if (this->timer != nullptr)
-    this->timer->start(Timers::IO);
+  Timer::byName("IO")->set();
 
   file << this->time << ", ";
   for (const Particle& particle: this->particles) {
@@ -232,27 +226,21 @@ void Model::writeParticles(std::ofstream& file) const {
     }
   }
   file << "\n";
-  if (this->timer != nullptr)
-    this->timer->stop(Timers::IO);
+  Timer::byName("IO")->reset();
 }
 
 void Model::writeTree(std::ofstream& file) const {
-  if (this->timer != nullptr)
-    this->timer->start(Timers::IO);
+  Timer::byName("IO")->set();
 
   file << this->time << ", ";
   this->tree.write(file);
   file << "\n";
 
-  if (this->timer != nullptr)
-    this->timer->stop(Timers::IO);
+  Timer::byName("IO")->reset();
 }
 
 void Model::printStats() const {
   printf("\n--- Stats for run ---\n");
-  if (this->timer != nullptr)
-    this->timer->write();
-
   printf("Number of iterations:   %u\n", this->num_iterations);
   printf("Number of particles:    %lu\n", this->particles.size());
   printf("Number of interactions: %lu\n", this->num_interactions);

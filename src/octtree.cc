@@ -383,12 +383,10 @@ void Tree::write(std::ofstream& file) const {
       }
     }
 
-    // if (!has_children) {
-      file << current->width << ", ";
-      for (int i = 0; i < numerical_types::num_dimensions; i++) {
-        file << current->center[i] << ", ";
-      }
-    // }
+    file << current->width << ", ";
+    for (int i = 0; i < numerical_types::num_dimensions; i++) {
+      file << current->center[i] << ", ";
+    }
   }
 }
 

@@ -1,34 +1,34 @@
 #pragma once
 
+#include <cstring>
+
 #include <array>
+#include <map>
+#include <memory>
+#include <string>
 #include <omp.h>
 
 namespace model {
 
-enum Timers : int {
-  ALL,
-  PART,
-  TREE,
-  IO,
-  SETUP,
-  TEARDOWN,
-  __COUNT,
-};
-
-
 class Timer {
  public:
-  inline void start(enum Timers timer) {
-    this->timers.at(timer) = omp_get_wtime();
+  static inline Timer* byName(const std::string& id) {
+    return &Timer::timers[id];
   }
+  static void write();
 
-  void stop(enum Timers timer);
-  double get(enum Timers timer) const;
-  void write() const;
+  inline void set() { this->set_time = omp_get_wtime(); }
+  inline void reset() {
+    const double t = omp_get_wtime();
+    this->total_time += t - this->set_time;
+    this->set_time = t;
+  }
+  double timeMS() const { return this->total_time * 1000.0; }
 
  private:
-  std::array<double, Timers::__COUNT> total_time = {0.0};
-  std::array<double, Timers::__COUNT> timers = {0.0};
+  static std::map<std::string, Timer> timers;
+  double set_time = 0.0f;
+  double total_time = 0.0f;
 };
 
 }  // namespace model

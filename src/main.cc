@@ -60,12 +60,10 @@ int main(int argc, char *argv[]) {
   std::ofstream particles_file(particles_path);
   std::ofstream tree_file(tree_path);
 
-  model::Timer timer;
   model::Model model;
 
-  timer.start(model::Timers::SETUP);
+  model::Timer::byName("Setup")->set();
 
-  model.setTimer(&timer);
   model.setEpsilon(epsilon);
   model.setTheta(theta);
   model.setTimeStep(dt);
@@ -75,7 +73,7 @@ int main(int argc, char *argv[]) {
   model.writeParticles(particles_file);
   model.writeTree(tree_file);
 
-  timer.stop(model::Timers::SETUP);
+  model::Timer::byName("Setup")->reset();
 
   for (int i = 0; i < num_iterations; i++) {
     model.step(1.0);
@@ -88,14 +86,17 @@ int main(int argc, char *argv[]) {
 
   printf("T: %.1f s\n", model.getTime());
 
-  timer.start(model::Timers::TEARDOWN);
+  model::Timer::byName("Teardown")->set();
+
   particles_file.close();
   tree_file.close();
 
-  timer.stop(model::Timers::TEARDOWN);
+  model::Timer::byName("Teardown")->reset();
 
   if (verbose) {
     model.printStats();
+    printf("\n");
+    model::Timer::write();
   }
 
   return 0;
