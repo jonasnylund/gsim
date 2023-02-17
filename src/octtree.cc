@@ -54,7 +54,6 @@ void Node::add(Particle* particle) {
   this->num_particles_contained++;
   // If this is the first particle added, we are currently a leaf node.
   if (this->num_particles_contained == 1) {
-    assert(this->particle == nullptr);
     this->particle = particle;
     this->particle->containing_node = this;
     return;
@@ -116,7 +115,7 @@ void Node::clear() {
   this->particle = nullptr;
   this->num_particles_contained = 0;
 
-  if (!!this->hasChildren()) {
+  if (this->hasChildren()) {
     for (int i = 0; i < num_subnodes; i++) {
       this->child(i)->clear();
     }
@@ -138,7 +137,7 @@ void Node::prune() {
       this->parent->num_particles_contained == 0) {
     this->children.clear();
   }
-  else if (!!this->hasChildren()) {
+  else if (this->hasChildren()) {
     for (int i = 0; i < num_subnodes; i++) {
       this->child(i)->prune();
     }
@@ -165,14 +164,13 @@ int Node::computeAccelleration(
     // The closest a particle in this node can be to the given particle is
     // the distance between the given particle and the node's center, subtract
     // the hypothenuse from the node center to its corners. In N dimensions,
-    // this is sqrt(N * (width / 2) ^ 2).
+    // this is sqrt(N * width ^ 2).
     // We keep all values squared though to avoid computing the sqrt.
-    constexpr numerical_types::real ndim_by_four = numerical_types::num_dimensions * 0.25;
     const numerical_types::real width_sq = this->width * this->width;
-    distance_sq -= ndim_by_four * width_sq;
+    distance_sq -= numerical_types::num_dimensions * width_sq;
     // If we have subnodes and the particle is close.
     if (theta * distance_sq < width_sq) {
-      if (!!this->hasChildren()) {
+      if (this->hasChildren()) {
         for (int i = 0; i < num_subnodes; i++) {
           if (this->constChild(i)->num_particles_contained > 0)
             num_calculations += this->constChild(i)->computeAccelleration(
@@ -190,10 +188,11 @@ int Node::computeAccelleration(
     distance_array[i] = particle.position[i] - this->center_of_mass[i];
     distance_sq += distance_array[i] * distance_array[i];
   }
-  const numerical_types::real distance_sq_inv = 1 / distance_sq;
+  const numerical_types::real distance_sq_inv = 1.0 / distance_sq;
   // Compute the accelleration due to gravity.
   const numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
   const numerical_types::real accelleration = this->total_mass * distance_sq_inv;
+
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
     result[i] -= accelleration * distance_array[i] * distance_inv;
   }
