@@ -60,6 +60,10 @@ public:
     }
   }
 
+  inline bool hasChildren() const { return !this->children.empty(); }
+  inline Node* child(int index) { return &this->children[index]; };
+  inline const Node* constChild(int index) const { return &this->children[index]; }
+
   inline numerical_types::real mass() const { return this->total_mass; }
   inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
 
@@ -105,7 +109,7 @@ class Tree {
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const;
 
-  Node* getRoot() const;
+  Node* getRoot() const { return this->root_node.get(); }
 
   void write(std::ofstream& file) const;
 

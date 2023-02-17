@@ -13,6 +13,8 @@
 #include <omp.h>
 
 #include "particle.h"
+#include "timers.h"
+
 
 namespace model {
 
@@ -32,7 +34,7 @@ Node* Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
   int linear_index = Node::SubnodeIndex(indices);
 
   // If the node does not yet exist, create it.
-  if (this->children.empty()) {
+  if (!this->hasChildren()) {
     this->allocateChildren();
   }
 
@@ -72,7 +74,7 @@ void Node::add(Particle* particle) {
 }
 
 void Node::allocateChildren() {
-  assert(this->children.empty());
+  assert(!this->hasChildren());
   const numerical_types::real half_width = this->width / 2;
 
   this->children.reserve(num_subnodes);
@@ -95,14 +97,14 @@ void Node::aggregateQuantities() {
   }
 
   this->total_mass = 0.0;
-  if (this->children.empty()) {
+  if (!this->hasChildren()) {
     return;
   }
   for (int i = 0; i < num_subnodes; i++) {
-    if (this->children[i].num_particles_contained > 0){
-      this->children[i].aggregateQuantities();
-      this->addMass(this->children[i].total_mass,
-                    this->children[i].center_of_mass);
+    if (this->child(i)->num_particles_contained > 0){
+      this->child(i)->aggregateQuantities();
+      this->addMass(this->child(i)->total_mass,
+                    this->child(i)->center_of_mass);
     }
   }
 }
@@ -114,9 +116,9 @@ void Node::clear() {
   this->particle = nullptr;
   this->num_particles_contained = 0;
 
-  if (!this->children.empty()) {
+  if (!!this->hasChildren()) {
     for (int i = 0; i < num_subnodes; i++) {
-      this->children[i].clear();
+      this->child(i)->clear();
     }
   }
 }
@@ -136,9 +138,9 @@ void Node::prune() {
       this->parent->num_particles_contained == 0) {
     this->children.clear();
   }
-  else if (!this->children.empty()) {
+  else if (!!this->hasChildren()) {
     for (int i = 0; i < num_subnodes; i++) {
-      this->children[i].prune();
+      this->child(i)->prune();
     }
   }
 }
@@ -170,10 +172,10 @@ int Node::computeAccelleration(
     distance_sq -= ndim_by_four * width_sq;
     // If we have subnodes and the particle is close.
     if (theta * distance_sq < width_sq) {
-      if (!this->children.empty()) {
+      if (!!this->hasChildren()) {
         for (int i = 0; i < num_subnodes; i++) {
-          if (this->children[i].num_particles_contained > 0)
-            num_calculations += this->children[i].computeAccelleration(
+          if (this->constChild(i)->num_particles_contained > 0)
+            num_calculations += this->constChild(i)->computeAccelleration(
               particle, theta, epsilon, result);
         }
       }
@@ -198,6 +200,8 @@ int Node::computeAccelleration(
 
   return ++num_calculations;
 }
+
+
 
 void Tree::rebuild(std::vector<Particle>& particles) {
   // Calculate the extent of the boundingbox of all particles.
@@ -233,24 +237,24 @@ bool Tree::update(std::vector<Particle>& particles) {
   bool rebuild_required = false;
 
   // Attempt to update the tree, rebuilding if required.
+  Timer::byName("Relocate")->set();
   for (Particle& particle: particles) {
     if (!this->relocate(&particle)) {
       rebuild_required = true;
       break;
     }
   }
+  Timer::byName("Relocate")->reset();
   if (rebuild_required) {
     this->rebuild(particles);
   }
   else{
-    // this->aggregateQuantities();
+    Timer::byName("Aggregate")->set();
     this->root_node->aggregateQuantities();
+    // this->aggregateQuantities();
+    Timer::byName("Aggregate")->reset();
   }
   return !rebuild_required;
-}
-
-Node* Tree::getRoot() const {
-  return this->root_node.get();
 }
 
 void Tree::add(Particle* particle, Node* root_node) {
@@ -333,9 +337,9 @@ std::vector<Node*> Tree::getNodesAtDepth(int depth) {
   children.reserve(parents.size() * num_subnodes);
 
   for (Node* parent : parents) {
-    if (!parent->children.empty()) {
+    if (parent->hasChildren()) {
       for (int i = 0; i < num_subnodes; i++) {
-        children.push_back(&parent->children[i]);
+        children.push_back(parent->child(i));
       }
     }
   }
@@ -359,12 +363,12 @@ void Tree::zero(Node* node) {
     current->total_mass = 0.0;
     current->dirty = true;
 
-    if (current->children.empty()) {
+    if (!current->hasChildren()) {
       continue;
     }
     for (int i = 0; i < num_subnodes; i++) {
-      if (!current->children[i].dirty)
-        stack.push(&current->children[i]);
+      if (!current->constChild(i)->dirty)
+        stack.push(current->child(i));
     }
   }
 }
@@ -377,9 +381,9 @@ void Tree::write(std::ofstream& file) const {
     Node* current = stack.top();
     stack.pop();
 
-    if (!current->children.empty()) {
+    if (current->hasChildren()) {
       for (int i = 0; i < num_subnodes; i++) {
-        stack.push(&current->children[i]);
+        stack.push(current->child(i));
       }
     }
 
