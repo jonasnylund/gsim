@@ -42,7 +42,6 @@ def next_frame(frame: int, file_, tree_, scatter, figure, ax):
     l = len(ax.patches)
     while(len(ax.patches) > 0):
       ax.patches[0].remove()
-    print(l, len(ax.patches))
     for r in data:
       ax.add_patch(patches.Rectangle(r[1:] - r[0], width=r[0] * 2, height=r[0] * 2, fill=False))
   return scatter

@@ -11,6 +11,10 @@
 namespace model {
 
 constexpr int num_subnodes = (1 << numerical_types::num_dimensions);
+constexpr int max_num_particles = 8;
+
+class Tree;
+
 
 class Node {
  public:
@@ -26,9 +30,11 @@ class Node {
   }
 
   Node(
-    numerical_types::ndarray center,
-    numerical_types::real width,
-    Node* parent);
+    Tree* tree,
+    Node* parent,
+    int depth,
+    const numerical_types::ndarray& center,
+    numerical_types::real width);
 
   // Checks whether a point is in the bounding box of this node.
   bool contains(const numerical_types::ndarray& point) const;
@@ -65,6 +71,8 @@ class Node {
   inline Node* child(int index) { return &this->children[index]; };
   inline const Node* constChild(int index) const { return &this->children[index]; }
 
+  inline bool hasParticles() const { return this->num_particles_local > 0; }
+
   // Returns the total mass of this node.
   inline numerical_types::real mass() const { return this->total_mass; }
 
@@ -80,6 +88,20 @@ class Node {
 
   void allocateChildren();
 
+  void computeAccelleration(
+    numerical_types::real mass,
+    const numerical_types::ndarray& position,
+    const Particle& particle,
+    numerical_types::real theta,
+    numerical_types::real epsilon,
+    numerical_types::ndarray& result) const;
+
+  // Remove a particle from this node.
+  void remove(Particle* particle);
+
+  // Moves all contained particles into this node, if possible.
+  void gatherChildParticles();
+
   // Clear all particles from this node and all child nodes.
   void clear();
 
@@ -88,13 +110,16 @@ class Node {
   numerical_types::ndarray center;
   numerical_types::real width;
 
-  Node* parent = nullptr;
+  Tree* const tree;
+  Node* const parent;
+  const int depth;
   std::vector<Node> children;
-  Particle* particle = nullptr;
+  std::array<Particle*, max_num_particles> particles;
+  int num_particles_local = 0;
   int num_particles_contained = 0;
   bool dirty = true;
   
-  numerical_types::ndarray center_of_mass = {0.0};
+  numerical_types::ndarray center_of_mass;
   numerical_types::real total_mass = 0.0;
 
   friend class Tree;

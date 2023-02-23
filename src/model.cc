@@ -173,8 +173,6 @@ void Model::updateParticles() {
 void Model::step(numerical_types::real time) {
   assert(this->tree.getRoot() != nullptr);
   Timer::byName("Timestepping")->set();
-
-  this->tree.getRoot()->prune();
   
   numerical_types::real endtime = this->time + time;
   while (std::abs(this->time - endtime) > std::abs(this->dtime)) {
@@ -189,6 +187,7 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
+  this->tree.getRoot()->prune();
 
   Timer::byName("Timestepping")->reset();
 }
