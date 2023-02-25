@@ -159,13 +159,6 @@ class Tree {
   // is reached.
   bool relocate(Particle* particle);
 
-  // Returns a vector with all nodes at a certain tree depth.
-  std::vector<Node*> getNodesAtDepth(int depth);
-
-  // Clear the state of each node.
-  void zero();
-  void zero(Node* node);
-
   std::unique_ptr<Node> root_node;
 };
 

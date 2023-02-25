@@ -420,54 +420,6 @@ bool Tree::relocate(Particle* particle) {
   return true;
 }
 
-std::vector<Node*> Tree::getNodesAtDepth(int depth) {
-  assert(depth >= 0);
-
-  if (depth == 0) {
-    return {this->root_node.get()};
-  }
-  std::vector<Node*> parents = this->getNodesAtDepth(depth - 1);
-  std::vector<Node*> children;
-  // Reserv capacity for the largest possible number of children.
-  children.reserve(parents.size() * num_subnodes);
-
-  for (Node* parent : parents) {
-    if (parent->hasChildren()) {
-      for (int i = 0; i < num_subnodes; i++) {
-        children.push_back(parent->child(i));
-      }
-    }
-  }
-  // Shrink the vector to the actual number of children.
-  children.shrink_to_fit();
-  return children;
-}
-
-void Tree::zero() {
-  this->zero(this->root_node.get());
-}
-
-void Tree::zero(Node* node) {
-  assert(node != nullptr);
-  std::stack<Node*> stack;
-  stack.push(node);
-
-  while(!stack.empty()) {
-    Node* current = stack.top();
-    stack.pop();
-    current->total_mass = 0.0;
-    current->dirty = true;
-
-    if (!current->hasChildren()) {
-      continue;
-    }
-    for (int i = 0; i < num_subnodes; i++) {
-      if (!current->constChild(i)->dirty)
-        stack.push(current->child(i));
-    }
-  }
-}
-
 void Tree::write(std::ofstream& file) const {
   std::stack<Node*> stack;
   stack.push(this->root_node.get());
