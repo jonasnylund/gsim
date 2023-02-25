@@ -29,7 +29,6 @@ Node::Node(
       depth(depth),
       center(center),
       width(width) {
-  assert(depth == (parent == nullptr ? 0: parent->depth + 1));
   this->center_of_mass.fill(0.0);
   this->total_mass = 0.0;
   this->particles.fill(nullptr);
@@ -60,7 +59,6 @@ void Node::add(Particle* particle) {
 
   // If this one of the first particle added, we are currently a leaf node.
   if (this->num_particles_contained <= this->particles.size()) {
-    assert(this->num_particles_local + 1 == this->num_particles_contained);
     for (int i = 0; i < max_num_particles; i++) {
       if (this->particles[i] == nullptr) {
         this->particles[i] = particle;
@@ -69,18 +67,14 @@ void Node::add(Particle* particle) {
         return;
       }
     }
-    assert(false);
   }
 
   // If we have local particles, but no more of them will fit, we must
   // first move them to the correct node.
   bool indices[numerical_types::num_dimensions];
   if (this->num_particles_local > 0) {
+    assert(this->num_particles_local == max_num_particles);
     for (int i = 0; i < max_num_particles; i++) {
-      if (this->particles[i] == nullptr){
-        assert(false);
-        break;
-      }
       this->indexOf(this->particles[i]->position, indices);
       this->getSubnode(indices)->add(this->particles[i]);
       this->particles[i] = nullptr;
@@ -101,7 +95,6 @@ void Node::remove(Particle* particle) {
       break;
     }
   }
-  assert(this->num_particles_local == this->num_particles_contained);
 }
 
 void Node::gatherChildParticles() {
@@ -143,7 +136,6 @@ void Node::allocateChildren() {
     }
     this->children.emplace_back(this->tree, this, this->depth + 1, center, half_width);
   }
-  assert(this->children.size() == num_subnodes);
 }
 
 void Node::aggregateQuantities() {
@@ -294,6 +286,7 @@ void Node::computeAccelleration(
 // Tree
 
 void Tree::rebuild(std::vector<Particle>& particles) {
+  Timer::byName("Tree: rebuild")->set();
   // Calculate the extent of the boundingbox of all particles.
   std::array<numerical_types::ndarray, 3> stats = Particle::positionExtent(particles);
   
@@ -319,6 +312,7 @@ void Tree::rebuild(std::vector<Particle>& particles) {
     this->add(&particle, this->root_node.get());
   }
   this->root_node->aggregateQuantities();
+  Timer::byName("Tree: rebuild")->reset();
 }
 
 bool Tree::update(std::vector<Particle>& particles) {
@@ -326,21 +320,21 @@ bool Tree::update(std::vector<Particle>& particles) {
   bool rebuild_required = false;
 
   // Attempt to update the tree, rebuilding if required.
-  Timer::byName("Relocate")->set();
+  Timer::byName("Tree: relocate")->set();
   for (Particle& particle: particles) {
     if (!this->relocate(&particle)) {
       rebuild_required = true;
       break;
     }
   }
-  Timer::byName("Relocate")->reset();
+  Timer::byName("Tree: relocate")->reset();
   if (rebuild_required) {
     this->rebuild(particles);
   }
   else{
-    Timer::byName("Aggregate")->set();
+    Timer::byName("Tree: aggregate")->set();
     this->root_node->aggregateQuantities();
-    Timer::byName("Aggregate")->reset();
+    Timer::byName("Tree: aggregate")->reset();
   }
   return !rebuild_required;
 }
@@ -388,7 +382,7 @@ bool Tree::relocate(Particle* particle) {
   }
   // Mark the current node as the new leaf for all its contained
   // particles.
-  Node* next_left_node = node;
+  Node* next_leaf_node = node;
   // Move the particle up in the tree if the current node does not
   // contain the particle position.
   while (node != nullptr && !node->contains(particle->position)) {
@@ -414,8 +408,8 @@ bool Tree::relocate(Particle* particle) {
 
   // If we can move particles up the tree to a new leaf node,
   // do it.
-  if (next_left_node != particle->containing_node) {
-    next_left_node->gatherChildParticles();
+  if (next_leaf_node != particle->containing_node) {
+    next_leaf_node->gatherChildParticles();
   }
   particle->containing_node = nullptr;
 

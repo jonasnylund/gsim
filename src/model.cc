@@ -81,7 +81,7 @@ void Model::initialize() {
 }
 
 void Model::buildTree() {
-  Timer::byName("Tree")->set();
+  Timer::byName("Tree: total")->set();
 
   if (this->tree.getRoot() != nullptr) {
     // If min and max extent of particle positions still lies inside the
@@ -96,7 +96,7 @@ void Model::buildTree() {
     this->num_rebuilds++;
   }
 
-  Timer::byName("Tree")->reset();
+  Timer::byName("Tree: total")->reset();
 }
 
 void Model::updateParticles() {
@@ -104,7 +104,7 @@ void Model::updateParticles() {
   assert(this->substep_counter < this->substep_frequency);
   assert(this->substep_frequency > 0);
 
-  Timer::byName("Particles")->set();
+  Timer::byName("Particles: total")->set();
 
   unsigned int num_interactions = 0;
   unsigned int max_frequency = 1;
@@ -113,7 +113,7 @@ void Model::updateParticles() {
   // Update frequencies can only be lowered on even substeps to not loose steps.
   const bool substep_is_even = this->substep_counter % 2 == 0;
 
-  Timer::byName("Accelleration")->set();
+  Timer::byName("Particles: accelleration")->set();
   #pragma omp parallel for \
           schedule(guided) \
           reduction(+: num_interactions) \
@@ -148,7 +148,7 @@ void Model::updateParticles() {
       max_frequency = particle.update_frequency;
     }
   }
-  Timer::byName("Accelleration")->reset();
+  Timer::byName("Particles: accelleration")->reset();
 
   // If the highest update frequency changed, we update the counter to reflect.
   if (this->substep_frequency < max_frequency) {
@@ -161,7 +161,7 @@ void Model::updateParticles() {
     this->substep_counter /= 2;
   }
 
-  Timer::byName("Position")->set();
+  Timer::byName("Particles: position")->set();
   // Step the particle position and velocity.
   #pragma omp parallel for schedule(static)
   for (Particle& particle : this->particles) {
@@ -177,10 +177,10 @@ void Model::updateParticles() {
 
     particle.update(dtime, substep_progress, substep_length);
   }
-  Timer::byName("Position")->reset();
+  Timer::byName("Particles: position")->reset();
   
   this->num_interactions += num_interactions;
-  Timer::byName("Particles")->reset();
+  Timer::byName("Particles: total")->reset();
 }
 
 void Model::step(numerical_types::real time) {
@@ -200,10 +200,10 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
-
-  Timer::byName("Pruning")->set();
+  
+  Timer::byName("Tree: pruning")->set();
   this->tree.getRoot()->prune();
-  Timer::byName("Pruning")->reset();
+  Timer::byName("Tree: pruning")->reset();
 
   Timer::byName("Timestepping")->reset();
 }
@@ -231,7 +231,7 @@ numerical_types::real Model::getTime() const {
 }
 
 void Model::writeParticles(std::ofstream& file) const {
-  Timer::byName("IO")->set();
+  Timer::byName("IO: particles")->set();
 
   file << this->time << ", ";
   for (const Particle& particle: this->particles) {
@@ -241,21 +241,21 @@ void Model::writeParticles(std::ofstream& file) const {
     }
   }
   file << "\n";
-  Timer::byName("IO")->reset();
+  Timer::byName("IO: particles")->reset();
 }
 
 void Model::writeTree(std::ofstream& file) const {
-  Timer::byName("IO")->set();
+  Timer::byName("IO: tree")->set();
 
   file << this->time << ", ";
   this->tree.write(file);
   file << "\n";
 
-  Timer::byName("IO")->reset();
+  Timer::byName("IO: tree")->reset();
 }
 
 void Model::printStats() const {
-  printf("\n--- Stats for run ---\n");
+  printf("\n--- Stats for run: ---\n");
   printf("Number of iterations:   %u\n", this->num_iterations);
   printf("Number of particles:    %lu\n", this->particles.size());
   printf("Number of interactions: %lu\n", this->num_interactions);

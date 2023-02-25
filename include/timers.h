@@ -13,6 +13,9 @@ namespace model {
 class Timer {
  public:
   static inline Timer* byName(const std::string& id) {
+    if (id.size() > Timer::longest_key) {
+      Timer::longest_key = id.size();
+    }
     return &Timer::timers[id];
   }
   static void write();
@@ -27,6 +30,7 @@ class Timer {
 
  private:
   static std::map<std::string, Timer> timers;
+  static int longest_key;
   double set_time = 0.0f;
   double total_time = 0.0f;
 };
