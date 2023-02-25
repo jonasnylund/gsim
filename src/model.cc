@@ -113,47 +113,42 @@ void Model::updateParticles() {
   // Update frequencies can only be lowered on even substeps to not loose steps.
   const bool substep_is_even = this->substep_counter % 2 == 0;
 
+  Timer::byName("Accelleration")->set();
   #pragma omp parallel for \
-          schedule(static) \
+          schedule(guided) \
           reduction(+: num_interactions) \
           reduction(max: max_frequency)
   for (Particle& particle : this->particles) {
     // Use dynamic timestepping for particles, and only recompute the accelleration for
     // particles with the highest accelleration each substep.
-    if (this->substep_counter % (this->substep_frequency / particle.update_frequency) == 0) {
-      numerical_types::ndarray accelleration = {0.0};
-      num_interactions += this->tree.computeAccelleration(
-          particle, this->theta, this->epsilon, accelleration);
-
-      // Set the new accelleration and get the preferred new update frequency.
-      unsigned int frequency = particle.setAccelleration(accelleration);
-
-      // Check if the update frequency should and/or can be changed.
-      if (particle.update_frequency < frequency) {
-        particle.update_frequency = frequency;
-      }
-      else if (particle.update_frequency > frequency && substep_is_even) {
-        particle.update_frequency /= 2;
-      }
-      // Since we only lower the substep_frequency by half on even substeps,
-      // all particles that is not updated have a frequency that is lower or equal
-      // to the possibly new one. Thus we only need to check the particles we
-      // update.
-      if (max_frequency < particle.update_frequency) {
-        max_frequency = particle.update_frequency;
-      }
+    if (this->substep_counter % (this->substep_frequency / particle.update_frequency) != 0) {
+      continue;
     }
-    // Step the particle position and velocity.
-    const numerical_types::real substep_length = (1.0 /
-      static_cast<numerical_types::real>(particle.update_frequency));
-    // substep_progress is this particles amount of progress made towards its next
-    // accelleration computation, the the substep_length is the progress to be made
-    // this iteration.
-    const numerical_types::real substep_progress = static_cast<numerical_types::real>(
-      this->substep_counter % particle.update_frequency) * substep_length;
 
-    particle.update(dtime, substep_progress, substep_length);
+    numerical_types::ndarray accelleration;
+    accelleration.fill(0.0);
+    num_interactions += this->tree.computeAccelleration(
+        particle, this->theta, this->epsilon, accelleration);
+
+    // Set the new accelleration and get the preferred new update frequency.
+    unsigned int frequency = particle.setAccelleration(accelleration);
+
+    // Check if the update frequency should and/or can be changed.
+    if (particle.update_frequency < frequency) {
+      particle.update_frequency = frequency;
+    }
+    else if (particle.update_frequency > frequency && substep_is_even) {
+      particle.update_frequency /= 2;
+    }
+    // Since we only lower the substep_frequency by half on even substeps,
+    // all particles that is not updated have a frequency that is lower or equal
+    // to the possibly new one. Thus we only need to check the particles we
+    // update.
+    if (max_frequency < particle.update_frequency) {
+      max_frequency = particle.update_frequency;
+    }
   }
+  Timer::byName("Accelleration")->reset();
 
   // If the highest update frequency changed, we update the counter to reflect.
   if (this->substep_frequency < max_frequency) {
@@ -165,6 +160,24 @@ void Model::updateParticles() {
     this->substep_frequency /= 2;
     this->substep_counter /= 2;
   }
+
+  Timer::byName("Position")->set();
+  // Step the particle position and velocity.
+  #pragma omp parallel for schedule(static)
+  for (Particle& particle : this->particles) {
+    const int update_period = this->substep_frequency / particle.update_frequency;
+    const int update_counter = this->substep_counter % update_period;
+
+    const numerical_types::real substep_length = (
+      1.0 / static_cast<numerical_types::real>(update_period));
+    // substep_progress is this particles amount of progress made towards its next
+    // accelleration computation, the the substep_length is the progress to be made
+    // this iteration.
+    const numerical_types::real substep_progress = update_counter * substep_length;
+
+    particle.update(dtime, substep_progress, substep_length);
+  }
+  Timer::byName("Position")->reset();
   
   this->num_interactions += num_interactions;
   Timer::byName("Particles")->reset();
@@ -187,7 +200,10 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
+
+  Timer::byName("Pruning")->set();
   this->tree.getRoot()->prune();
+  Timer::byName("Pruning")->reset();
 
   Timer::byName("Timestepping")->reset();
 }

@@ -218,8 +218,30 @@ int Node::computeAccelleration(
     numerical_types::ndarray& result) const {
   int num_calculations = 0;
 
-  // If this node has particles, compute the force against them.
-  if (this->hasParticles()) {
+  // Calculate the distance between the the object and the cell.
+  numerical_types::real distance_sq = 0;
+  for (int i = 0; i < numerical_types::num_dimensions; i++) {
+    const numerical_types::real d = this->center[i] - particle.position[i];
+    distance_sq += d * d;
+  }
+
+  // The closest a particle in this node can be to the given particle is
+  // the distance between the given particle and the node's center, subtract
+  // the hypothenuse from the node center to its corners. In N dimensions,
+  // this is sqrt(N * width ^ 2).
+  // We keep all values squared though to avoid computing the sqrt.
+  const numerical_types::real width_sq = this->width * this->width;
+  distance_sq -= numerical_types::num_dimensions * width_sq;
+
+  if (theta * distance_sq > width_sq) {
+    // If the particle is sufficiently far away, approximate the accelleration
+    // from the cells mass and center of mass.
+    this->computeAccelleration(this->total_mass, this->center_of_mass, particle, theta, epsilon, result);
+    num_calculations++;
+  }
+  else if (this->hasParticles()) {
+    // If this node is a leaf node, compute the accelleration against each
+    // particle individually.
     for (int i = 0; i < max_num_particles; i++) {
       if (this->particles[i] == nullptr || this->particles[i] == &particle) {
         continue;
@@ -234,38 +256,16 @@ int Node::computeAccelleration(
         result);
       num_calculations++;
     }
-    return num_calculations;
   }
-  // Check if we should go deeper into the tree to compute the force.
   else if (this->hasChildren()) {
-    // Calculate the distance between the the object and the cell.
-    numerical_types::real distance_sq = 0;
-    for (int i = 0; i < numerical_types::num_dimensions; i++) {
-      const numerical_types::real d = this->center[i] - particle.position[i];
-      distance_sq += d * d;
-    }
-
-    // The closest a particle in this node can be to the given particle is
-    // the distance between the given particle and the node's center, subtract
-    // the hypothenuse from the node center to its corners. In N dimensions,
-    // this is sqrt(N * width ^ 2).
-    // We keep all values squared though to avoid computing the sqrt.
-    const numerical_types::real width_sq = this->width * this->width;
-    distance_sq -= numerical_types::num_dimensions * width_sq;
-    // If we have subnodes and the particle is close.
-    if (theta * distance_sq < width_sq) {
-      for (int i = 0; i < num_subnodes; i++) {
-        if (this->constChild(i)->num_particles_contained > 0)
-          num_calculations += this->constChild(i)->computeAccelleration(
-            particle, theta, epsilon, result);
-      }
-      return num_calculations;
+    // If the node has children, iterate over each and compute the accelleration.
+    for (int i = 0; i < num_subnodes; i++) {
+      if (this->constChild(i)->num_particles_contained > 0)
+        num_calculations += this->constChild(i)->computeAccelleration(
+          particle, theta, epsilon, result);
     }
   }
-    // Compute the force against the local combined mass and position.
-  this->computeAccelleration(this->total_mass, this->center_of_mass, particle, theta, epsilon, result);
-  
-  return num_calculations++;
+  return num_calculations;
 }
 
 void Node::computeAccelleration(
