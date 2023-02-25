@@ -15,7 +15,6 @@ constexpr int max_num_particles = 8;
 
 class Tree;
 
-
 class Node {
  public:
 
@@ -57,7 +56,6 @@ class Node {
   // Removes nodes in the tree with no contiained particles.
   void prune();
 
-
   inline void indexOf(
       const numerical_types::ndarray& position,
       bool indices[numerical_types::num_dimensions]) const {
@@ -72,6 +70,7 @@ class Node {
   inline const Node* constChild(int index) const { return &this->children[index]; }
 
   inline bool hasParticles() const { return this->num_particles_local > 0; }
+  inline Particle *& particle(int index) { return this->particles[index].particle; }
 
   // Returns the total mass of this node.
   inline numerical_types::real mass() const { return this->total_mass; }
@@ -79,8 +78,13 @@ class Node {
   // Returns the combined center of mass of this node.
   inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
 
-
  protected:
+  struct PseudoParticle {
+    Particle* particle = nullptr;
+    numerical_types::real mass = 0.0;
+    numerical_types::ndarray position = {};
+  };
+
   // Add a particle to this node.
   void add(Particle* particle);
 
@@ -114,7 +118,7 @@ class Node {
   Node* const parent;
   const int depth;
   std::vector<Node> children;
-  std::array<Particle*, max_num_particles> particles;
+  std::array<PseudoParticle, max_num_particles> particles;
   int num_particles_local = 0;
   int num_particles_contained = 0;
   bool dirty = true;
@@ -143,7 +147,6 @@ class Tree {
   Node* getRoot() const { return this->root_node.get(); }
 
   void write(std::ofstream& file) const;
-
 
  private:
   // Add a particle to the tree.

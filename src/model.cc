@@ -109,13 +109,12 @@ void Model::updateParticles() {
   unsigned int num_interactions = 0;
   unsigned int max_frequency = 1;
 
-  const numerical_types::real dtime = this->dtime / this->substep_frequency;
   // Update frequencies can only be lowered on even substeps to not loose steps.
   const bool substep_is_even = this->substep_counter % 2 == 0;
 
   Timer::byName("Particles: accelleration")->set();
   #pragma omp parallel for \
-          schedule(guided) \
+          schedule(static) \
           reduction(+: num_interactions) \
           reduction(max: max_frequency)
   for (Particle& particle : this->particles) {
@@ -161,6 +160,8 @@ void Model::updateParticles() {
     this->substep_counter /= 2;
   }
 
+  const numerical_types::real dtime = this->dtime / this->substep_frequency;
+
   Timer::byName("Particles: position")->set();
   // Step the particle position and velocity.
   #pragma omp parallel for schedule(static)
@@ -178,7 +179,7 @@ void Model::updateParticles() {
     particle.update(dtime, substep_progress, substep_length);
   }
   Timer::byName("Particles: position")->reset();
-  
+
   this->num_interactions += num_interactions;
   Timer::byName("Particles: total")->reset();
 }
@@ -200,10 +201,7 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
-  
-  Timer::byName("Tree: pruning")->set();
   this->tree.getRoot()->prune();
-  Timer::byName("Tree: pruning")->reset();
 
   Timer::byName("Timestepping")->reset();
 }

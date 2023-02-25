@@ -31,7 +31,7 @@ Node::Node(
       width(width) {
   this->center_of_mass.fill(0.0);
   this->total_mass = 0.0;
-  this->particles.fill(nullptr);
+  this->particles.fill({});
 }
 
 Node* Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
@@ -60,8 +60,8 @@ void Node::add(Particle* particle) {
   // If this one of the first particle added, we are currently a leaf node.
   if (this->num_particles_contained <= this->particles.size()) {
     for (int i = 0; i < max_num_particles; i++) {
-      if (this->particles[i] == nullptr) {
-        this->particles[i] = particle;
+      if (this->particle(i) == nullptr) {
+        this->particle(i) = particle;
         this->num_particles_local++;
         particle->containing_node = this;
         return;
@@ -75,9 +75,9 @@ void Node::add(Particle* particle) {
   if (this->num_particles_local > 0) {
     assert(this->num_particles_local == max_num_particles);
     for (int i = 0; i < max_num_particles; i++) {
-      this->indexOf(this->particles[i]->position, indices);
-      this->getSubnode(indices)->add(this->particles[i]);
-      this->particles[i] = nullptr;
+      this->indexOf(this->particle(i)->position, indices);
+      this->getSubnode(indices)->add(this->particle(i));
+      this->particle(i) = nullptr;
     }
     this->num_particles_local = 0;
   }
@@ -89,8 +89,8 @@ void Node::add(Particle* particle) {
 
 void Node::remove(Particle* particle) {
   for (int i = 0; i < max_num_particles; i++) {
-    if (this->particles[i] == particle) {
-      this->particles[i] = nullptr;
+    if (this->particle(i) == particle) {
+      this->particle(i) = {};
       this->num_particles_local--;
       break;
     }
@@ -111,12 +111,12 @@ void Node::gatherChildParticles() {
         this->child(i)->gatherChildParticles();
       }
       for (int j = 0; j < max_num_particles; j++) {
-        if (this->child(i)->particles[j] == nullptr){
+        if (this->child(i)->particle(j) == nullptr){
           continue;
         }
-        this->add(this->child(i)->particles[j]);
+        this->add(this->child(i)->particle(j));
       }
-      this->child(i)->particles.fill(nullptr);
+      this->child(i)->particles.fill({});
       this->child(i)->num_particles_local = 0;
       this->child(i)->num_particles_contained = 0;
     }
@@ -144,9 +144,11 @@ void Node::aggregateQuantities() {
 
   if (this->hasParticles()) {
     for (int i = 0; i < max_num_particles; i++) {
-      if (this->particles[i] != nullptr) {
-        this->addMass(this->particles[i]->mass,
-                      this->particles[i]->position);
+      if (this->particle(i) != nullptr) {
+        this->particles[i].mass = this->particle(i)->mass;
+        this->particles[i].position = this->particle(i)->position;
+        this->addMass(this->particles[i].mass,
+                      this->particles[i].position);
       }
     }
   }
@@ -164,10 +166,10 @@ void Node::aggregateQuantities() {
 void Node::clear() {
   if (this->hasParticles()) {
     for (int i = 0; i < max_num_particles; i++) {
-      if (this->particles[i] != nullptr) {
-        this->particles[i]->containing_node = nullptr;
+      if (this->particle(i) != nullptr) {
+        this->particle(i)->containing_node = nullptr;
       }
-      this->particles[i] = nullptr;
+      this->particle(i) = nullptr;
     }
   }
 
@@ -235,13 +237,14 @@ int Node::computeAccelleration(
     // If this node is a leaf node, compute the accelleration against each
     // particle individually.
     for (int i = 0; i < max_num_particles; i++) {
-      if (this->particles[i] == nullptr || this->particles[i] == &particle) {
+      if (this->particles[i].particle == nullptr ||
+          this->particles[i].particle == &particle) {
         continue;
       }
       // Compute the accelleration against this particle.
       this->computeAccelleration(
-        this->particles[i]->mass,
-        this->particles[i]->position,
+        this->particles[i].mass,
+        this->particles[i].position,
         particle,
         theta,
         epsilon,
