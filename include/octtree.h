@@ -56,6 +56,7 @@ class Node {
   // Removes nodes in the tree with no contiained particles.
   void prune();
 
+  // Computes the subnode containing the given point.
   inline void indexOf(
       const numerical_types::ndarray& position,
       bool indices[numerical_types::num_dimensions]) const {
@@ -69,6 +70,7 @@ class Node {
   inline Node* child(int index) { return &this->children[index]; };
   inline const Node* constChild(int index) const { return &this->children[index]; }
 
+  // Returns true if this node has particles, false otherwise.
   inline bool hasParticles() const { return this->num_particles_local > 0; }
   inline Particle *& particle(int index) { return this->particles[index].particle; }
 

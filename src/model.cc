@@ -229,7 +229,7 @@ numerical_types::real Model::getTime() const {
 }
 
 void Model::writeParticles(std::ofstream& file) const {
-  Timer::byName("IO: particles")->set();
+  Timer::byName("IO")->set();
 
   file << this->time << ", ";
   for (const Particle& particle: this->particles) {
@@ -239,17 +239,17 @@ void Model::writeParticles(std::ofstream& file) const {
     }
   }
   file << "\n";
-  Timer::byName("IO: particles")->reset();
+  Timer::byName("IO")->reset();
 }
 
 void Model::writeTree(std::ofstream& file) const {
-  Timer::byName("IO: tree")->set();
+  Timer::byName("IO")->set();
 
   file << this->time << ", ";
   this->tree.write(file);
   file << "\n";
 
-  Timer::byName("IO: tree")->reset();
+  Timer::byName("IO")->reset();
 }
 
 void Model::printStats() const {

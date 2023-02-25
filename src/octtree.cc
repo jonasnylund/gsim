@@ -353,7 +353,6 @@ void Tree::add(Particle* particle, Node* node) {
     node->indexOf(particle->position, indices);
     node = node->getSubnode(indices);
   }
-
   node->add(particle);
 }
 
