@@ -140,15 +140,27 @@ class Tree {
   // true on success, and false if the tree required rebuilding.
   bool update(std::vector<Particle>& particles);
 
+  // Partially updates the nodes of the tree without relocating
+  // the particles.
+  void update();
+
+  // Compute the accelleration for a single particle.
   int computeAccelleration(
     const Particle& particle,
     numerical_types::real theta,
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const;
 
-  Node* getRoot() const { return this->root_node.get(); }
+  // Prune empty nodes from the tree.
+  void prune();
 
+  // Write the tree structure to a text file.
   void write(std::ofstream& file) const;
+
+  // Returns true if the tree exists and contains particles, false otherwise.
+  inline bool empty() const {
+    return this->root_node != nullptr && this->root_node->num_particles_contained > 0;
+  }
 
  private:
   // Add a particle to the tree.

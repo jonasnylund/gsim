@@ -19,16 +19,10 @@ class Model {
 
   void initialize();
 
-  void buildTree();
-  // Calculate the accelleration on each particle.
-  void updateParticles();
   // Step the simulation forward one iteration.
   void step(numerical_types::real time);
   // Set the smallest time step.
   void setTimeStep(numerical_types::real dtime);
-
-  // Add a timer object to the model.
-  void setTimer(Timer* timer);
 
   // Set minimum distance to use in calculations. 
   void setEpsilon(numerical_types::real epsilon);
@@ -48,6 +42,13 @@ class Model {
   void printStats() const;
 
  private:
+  // Fully updates the tree.
+  void rebuildTree();
+  // Partially updates the tree.
+  void updateTree();
+  // Calculate the accelleration on each particle.
+  void updateParticles();
+  
   std::vector<Particle> particles;
   Tree tree;
 
@@ -62,7 +63,6 @@ class Model {
 
   unsigned int substep_frequency = 1;
   unsigned int substep_counter = 0;
-  Timer* timer;
 
   numerical_types::real total_mass = 0.0;
 };

@@ -289,7 +289,6 @@ void Node::computeAccelleration(
 // Tree
 
 void Tree::rebuild(std::vector<Particle>& particles) {
-  Timer::byName("Tree: rebuild")->set();
   // Calculate the extent of the boundingbox of all particles.
   std::array<numerical_types::ndarray, 3> stats = Particle::positionExtent(particles);
   
@@ -314,8 +313,7 @@ void Tree::rebuild(std::vector<Particle>& particles) {
   for (Particle& particle: particles) {
     this->add(&particle, this->root_node.get());
   }
-  this->root_node->aggregateQuantities();
-  Timer::byName("Tree: rebuild")->reset();
+  this->update();
 }
 
 bool Tree::update(std::vector<Particle>& particles) {
@@ -335,11 +333,66 @@ bool Tree::update(std::vector<Particle>& particles) {
     this->rebuild(particles);
   }
   else{
-    Timer::byName("Tree: aggregate")->set();
-    this->root_node->aggregateQuantities();
-    Timer::byName("Tree: aggregate")->reset();
+    this->update();
   }
   return !rebuild_required;
+}
+
+void Tree::update() {
+  constexpr int depth = 4;
+  std::array<std::vector<Node*>, depth> nodes;
+
+  Timer::byName("Tree: get nodes")->set();
+  nodes[0].push_back(this->root_node.get());
+
+  // Gather pointers to the nodes at the first few depths.
+  for (int i = 1; i < depth; i++) {
+    nodes[i].reserve(num_subnodes * nodes[i - 1].size());
+    for (int j = 0; j < nodes[i - 1].size(); j++) {
+      for (int k = 0; k < num_subnodes; k++) {
+        if (nodes[i - 1][j]->hasChildren() &&
+            nodes[i - 1][j]->child(k)->num_particles_contained > 0) {
+          nodes[i].push_back(nodes[i - 1][j]->child(k));
+        }
+      }
+    }
+  }
+
+  Timer::byName("Tree: get nodes")->reset();
+  Timer::byName("Tree: aggregate")->set();
+  // Compute the particle quantities for the deepest nodes in parallel.
+  #pragma omp parallel for schedule(static)
+  for (Node* node : nodes[depth - 1]) {
+    node->aggregateQuantities();
+  }
+
+  // Aggregate the final few nodes manually.
+  for (int i = depth - 2; i >= 0; i--) {
+    for (Node* node : nodes[i]) {
+      node->total_mass = 0;
+      node->dirty = false;
+      
+      if (node->hasParticles()) {
+        for (int j = 0; j < max_num_particles; j++) {
+          if (node->particle(j) != nullptr) {
+            node->particles[j].mass = node->particles[j].particle->mass;
+            node->particles[j].position = node->particles[j].particle->position;
+            node->addMass(node->particles[j].mass,
+                          node->particles[j].position);
+          }
+        }
+      }
+      else if(node->hasChildren()) {
+        for (int j = 0; j < num_subnodes; j++) {
+          if (node->child(j)->num_particles_contained > 0)
+            node->addMass(node->child(j)->total_mass,
+                          node->child(j)->center_of_mass);
+        }
+      }
+    }
+  }
+
+  Timer::byName("Tree: aggregate")->reset();
 }
 
 void Tree::add(Particle* particle, Node* node) {
@@ -418,6 +471,10 @@ bool Tree::relocate(Particle* particle) {
   // node->add(particle);
   this->add(particle, node);
   return true;
+}
+
+void Tree::prune() {
+  this->root_node->prune();
 }
 
 void Tree::write(std::ofstream& file) const {

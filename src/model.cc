@@ -66,7 +66,7 @@ void Model::randomParticles(int num_particles) {
 }
 
 void Model::initialize() {
-  this->buildTree();
+  this->rebuildTree();
   this->substep_counter = 0;
   this->substep_frequency = 1;
 
@@ -80,22 +80,25 @@ void Model::initialize() {
   }
 }
 
-void Model::buildTree() {
+void Model::rebuildTree() {
   Timer::byName("Tree: total")->set();
 
-  if (this->tree.getRoot() != nullptr) {
-    // If min and max extent of particle positions still lies inside the
-    // root node, reuse the tree.
-    if (!this->tree.update(this->particles)) {
-      this->num_rebuilds++;
-    }
+  if (this->tree.empty()) {
+    // Attempt to update the existing tree if possible.
+    this->num_rebuilds += static_cast<unsigned int>(
+      !this->tree.update(this->particles));
   }
   else {
-    // If particles lie outside the tree, we must rebuild the structure. 
     this->tree.rebuild(this->particles);
     this->num_rebuilds++;
   }
 
+  Timer::byName("Tree: total")->reset();
+}
+
+void Model::updateTree() {
+  Timer::byName("Tree: total")->set();
+  this->tree.update();
   Timer::byName("Tree: total")->reset();
 }
 
@@ -117,10 +120,9 @@ void Model::updateParticles() {
           schedule(static) \
           reduction(+: num_interactions) \
           reduction(max: max_frequency)
-  for (Particle& particle : this->particles) {
-    // Use dynamic timestepping for particles, and only recompute the accelleration for
-    // particles with the highest accelleration each substep.
-    if (this->substep_counter % (this->substep_frequency / particle.update_frequency) != 0) {
+  for (Particle& particle : particles) {
+    if (this->substep_counter % (
+          this->substep_frequency / particle.update_frequency) != 0) {
       continue;
     }
 
@@ -185,15 +187,20 @@ void Model::updateParticles() {
 }
 
 void Model::step(numerical_types::real time) {
-  assert(this->tree.getRoot() != nullptr);
   Timer::byName("Timestepping")->set();
   
   numerical_types::real endtime = this->time + time;
   while (std::abs(this->time - endtime) > std::abs(this->dtime)) {
     this->substep_counter = 0;
+    this->rebuildTree();
 
     while (this->substep_counter < this->substep_frequency) {
-      this->buildTree();
+      // Only update the tree without calculating new particle
+      // positions. But don't update the tree twice on the first
+      // iteration when we already rebuilt the tree.
+      if (this->substep_counter > 0)
+        this->updateTree();
+
       this->updateParticles();
 
       this->num_iterations++;
@@ -201,17 +208,13 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
-  this->tree.getRoot()->prune();
+  this->tree.prune();
 
   Timer::byName("Timestepping")->reset();
 }
 
 void Model::setTimeStep(numerical_types::real dtime) {
   this->dtime = dtime;
-}
-
-void Model::setTimer(Timer* timer) {
-  this->timer = timer;
 }
 
 void Model::setEpsilon(numerical_types::real epsilon) {
@@ -255,8 +258,9 @@ void Model::writeTree(std::ofstream& file) const {
 void Model::printStats() const {
   printf("\n--- Stats for run: ---\n");
   printf("Number of iterations:   %u\n", this->num_iterations);
-  printf("Number of particles:    %lu\n", this->particles.size());
   printf("Number of interactions: %lu\n", this->num_interactions);
+  printf("Interactions/iteration: %lu\n", this->num_interactions / this->num_iterations);
+  printf("Number of particles:    %lu\n", this->particles.size());
   printf("Number of rebuilds:     %u\n", this->num_rebuilds);
   printf("Fraction of rebuilds:   %.1f%%\n",
     100.0f * static_cast<float>(this->num_rebuilds) / static_cast<float>(this->num_iterations));
