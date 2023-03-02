@@ -208,7 +208,8 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
-  this->tree.prune();
+  // TODO: Reenable once new allocation is fixed.
+  // this->tree.prune();
 
   Timer::byName("Timestepping")->reset();
 }

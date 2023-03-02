@@ -31,6 +31,7 @@ class Node {
   Node(
     Tree* tree,
     Node* parent,
+    int id,
     int depth,
     const numerical_types::ndarray& center,
     numerical_types::real width);
@@ -69,6 +70,7 @@ class Node {
   inline bool hasChildren() const { return !this->children.empty(); }
   inline Node* child(int index) { return &this->children[index]; };
   inline const Node* constChild(int index) const { return &this->children[index]; }
+  inline Node* parent() const { return this->parent_node; }
 
   // Returns true if this node has particles, false otherwise.
   inline bool hasParticles() const { return this->num_particles_local > 0; }
@@ -116,8 +118,11 @@ class Node {
   numerical_types::ndarray center;
   numerical_types::real width;
 
+  const int id;
+  const int parent_id;
+
   Tree* const tree;
-  Node* const parent;
+  Node* const parent_node;
   const int depth;
   std::vector<Node> children;
   std::array<PseudoParticle, max_num_particles> particles;
@@ -162,6 +167,20 @@ class Tree {
     return this->root_node != nullptr && this->root_node->num_particles_contained > 0;
   }
 
+  // Returns the maximum height of the tree.
+  inline int height() const { return this->nodes.size(); }
+
+  // Returns the total number of nodes allocated in the tree.
+  int numNodes() const;
+
+ protected:
+  inline Node* rootNode() const { return this->root_node.get(); }
+  inline const Node* constRootNode() const { return this->root_node.get(); }
+  inline Node* getNode(int depth, int index) { return &this->nodes[depth][index]; }
+  inline const Node* constGetNode(int depth, int index) const { return &this->nodes[depth][index]; }
+
+  int allocateNode(Node* parent, const numerical_types::ndarray& center, numerical_types::real width);
+
  private:
   // Add a particle to the tree.
   void add(Particle* particle, Node* node);
@@ -172,6 +191,9 @@ class Tree {
   bool relocate(Particle* particle);
 
   std::unique_ptr<Node> root_node;
+  std::vector<std::vector<Node>> nodes;
+
+  friend class Node;
 };
 
 }  // namespace model

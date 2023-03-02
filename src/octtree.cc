@@ -21,11 +21,14 @@ namespace model {
 Node::Node(
     Tree* tree,
     Node* parent,
+    int id,
     int depth,
     const numerical_types::ndarray& center,
     numerical_types::real width)
-    : tree(tree),
-      parent(parent),
+    : id(id),
+      parent_id(parent != nullptr ? parent->id : -1),
+      tree(tree),
+      parent_node(parent),
       depth(depth),
       center(center),
       width(width) {
@@ -134,7 +137,7 @@ void Node::allocateChildren() {
       int index = (i >> j) & 0x1;
       center[j] = this->center[j] - half_width + this->width * index;
     }
-    this->children.emplace_back(this->tree, this, this->depth + 1, center, half_width);
+    this->children.emplace_back(this->tree, this, 0, this->depth + 1, center, half_width);
   }
 }
 
@@ -194,8 +197,8 @@ bool Node::contains(const numerical_types::ndarray& point) const {
 }
 
 void Node::prune() {
-  if (this->parent != nullptr &&
-      this->parent->num_particles_contained == 0) {
+  if (this->parent() != nullptr &&
+      this->parent()->num_particles_contained == 0) {
     this->children.clear();
   }
   else if (this->hasChildren()) {
@@ -308,16 +311,16 @@ void Tree::rebuild(std::vector<Particle>& particles) {
   width *= 1.5;	// Have some margin in the size.
   // Center the root node on the average position of all the particles.
   // This should balance the tree somewhat when a few particles are far away. 
-  this->root_node.reset(new Node(this, nullptr, 0, average, width));
+  this->root_node.reset(new Node(this, nullptr, 0, 0, average, width));
   // Add all particles to the tree.
   for (Particle& particle: particles) {
-    this->add(&particle, this->root_node.get());
+    this->add(&particle, this->rootNode());
   }
   this->update();
 }
 
 bool Tree::update(std::vector<Particle>& particles) {
-  assert(this->root_node.get() != nullptr);
+  assert(this->rootNode() != nullptr);
   bool rebuild_required = false;
 
   // Attempt to update the tree, rebuilding if required.
@@ -343,7 +346,7 @@ void Tree::update() {
   std::array<std::vector<Node*>, depth> nodes;
 
   Timer::byName("Tree: get nodes")->set();
-  nodes[0].push_back(this->root_node.get());
+  nodes[0].push_back(this->rootNode());
 
   // Gather pointers to the nodes at the first few depths.
   for (int i = 1; i < depth; i++) {
@@ -422,6 +425,14 @@ int Tree::computeAccelleration(
   return computations;
 }
 
+int Tree::numNodes() const {
+  int num_nodes = 0;
+  for (int i = 0; i < this->nodes.size(); i++) {
+    num_nodes += this->nodes[i].size();
+  }
+  return num_nodes;
+}
+
 bool Tree::relocate(Particle* particle) {
   Node* node = particle->containing_node;
   assert(node != nullptr);
@@ -429,11 +440,11 @@ bool Tree::relocate(Particle* particle) {
   int i = 0;
   // Move the particle up in the tree if the parent node only
   // contains particles in this node.
-  while (node->parent != nullptr &&
-         node->parent->num_particles_contained <= max_num_particles) {
+  while (node->parent() != nullptr &&
+         node->parent()->num_particles_contained <= max_num_particles) {
     i++;
     node->num_particles_contained--;
-    node = node->parent;
+    node = node->parent();
   }
   // Mark the current node as the new leaf for all its contained
   // particles.
@@ -443,7 +454,7 @@ bool Tree::relocate(Particle* particle) {
   while (node != nullptr && !node->contains(particle->position)) {
     i++;
     node->num_particles_contained--;
-    node = node->parent;
+    node = node->parent();
   }
   // If the root node did not contain the particle, we cannot add it.
   if (node == nullptr){
@@ -473,21 +484,38 @@ bool Tree::relocate(Particle* particle) {
   return true;
 }
 
+int Tree::allocateNode(Node* parent,
+                       const numerical_types::ndarray& center,
+                       numerical_types::real width) {
+  assert(this->nodes.size() >= parent->depth);
+  const int depth = parent->depth + 1;
+
+  if (this->nodes.size() < depth) {
+    this->nodes.resize(depth);
+  }
+
+  std::vector<Node>* node_vector = &this->nodes[depth];
+  int index = node_vector->size();
+  node_vector->emplace_back(this, parent, index, depth, center, width);
+
+  return index;
+}
+
 void Tree::prune() {
   this->root_node->prune();
 }
 
 void Tree::write(std::ofstream& file) const {
-  std::stack<Node*> stack;
-  stack.push(this->root_node.get());
+  std::stack<const Node*> stack;
+  stack.push(this->constRootNode());
 
   while(!stack.empty()) {
-    Node* current = stack.top();
+    const Node* current = stack.top();
     stack.pop();
 
     if (current->hasChildren()) {
       for (int i = 0; i < num_subnodes; i++) {
-        stack.push(current->child(i));
+        stack.push(current->constChild(i));
       }
     }
 
