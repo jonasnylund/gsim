@@ -11,7 +11,7 @@
 namespace model {
 
 constexpr int num_subnodes = (1 << numerical_types::num_dimensions);
-constexpr int max_num_particles = 8;
+constexpr int max_num_particles = 4;
 
 
 class Tree {

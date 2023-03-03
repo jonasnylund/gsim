@@ -358,7 +358,34 @@ bool Tree::update(std::vector<Particle>& particles) {
 void Tree::update() {
   Timer::byName("Tree: aggregate")->set();
 
-  this->rootNode()->aggregateQuantities();
+  // Compute node quantities in parallel at each depth. Begin with
+  // the leaf nodes and iterate over each depth in the tree in reverse.
+  for (int depth = this->nodes.size() - 1; depth >= 0; depth--) {
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < this->nodes[depth].size(); i++) {
+      Node& node = this->nodes[depth][i];
+      node.total_mass = 0.0;
+
+      if (node.hasParticles()) {
+        for (int j = 0; j < max_num_particles; j++) {
+          if (node.particle(j) != nullptr) {
+            node.particles[j].mass = node.particle(j)->mass;
+            node.particles[j].position = node.particle(j)->position;
+            node.addMass(node.particles[j].mass,
+                         node.particles[j].position);
+          }
+        }
+      }
+      else if (node.hasChildren()) {
+        for (int j = 0; j < num_subnodes; j++) {
+          if (node.child(j)->num_particles_contained > 0) {
+            node.addMass(node.child(j)->total_mass,
+                         node.child(j)->center_of_mass);
+          }
+        }
+      }
+    }
+  }
 
   Timer::byName("Tree: aggregate")->reset();
 }
