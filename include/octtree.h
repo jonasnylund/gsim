@@ -11,7 +11,7 @@
 namespace model {
 
 constexpr int num_subnodes = (1 << numerical_types::num_dimensions);
-constexpr int max_num_particles = 4;
+constexpr int max_num_particles = 8;
 
 
 class Tree {
@@ -90,9 +90,6 @@ class Tree {
 
     // Returns the total number of particles in this node and all its children.
     int getNumContainedParticles() const { return this->num_particles_contained; }
-
-    // Removes nodes in the tree with no contiained particles.
-    void prune();
 
     // Computes the subnode containing the given point.
     inline void indexOf(

@@ -203,18 +203,6 @@ bool Tree::Node::contains(const numerical_types::ndarray& point) const {
   return true;
 }
 
-void Tree::Node::prune() {
-  if (this->parent() != nullptr &&
-      this->parent()->num_particles_contained == 0) {
-    this->children.fill(numerical_types::emptykey);
-  }
-  else if (this->hasChildren()) {
-    for (int i = 0; i < num_subnodes; i++) {
-      this->child(i)->prune();
-    }
-  }
-}
-
 int Tree::Node::computeAccelleration(
     const Particle& particle,
     numerical_types::real theta,
@@ -361,9 +349,14 @@ void Tree::update() {
   // Compute node quantities in parallel at each depth. Begin with
   // the leaf nodes and iterate over each depth in the tree in reverse.
   for (int depth = this->nodes.size() - 1; depth >= 0; depth--) {
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < this->nodes[depth].size(); i++) {
+    const int num_iterations = this->nodes[depth].size();
+    #pragma omp parallel for schedule(static) \
+            if (num_iterations > 64)
+    for (int i = 0; i < num_iterations; i++) {
       Node& node = this->nodes[depth][i];
+      if (node.num_particles_contained == 0) {
+        continue;
+      }
       node.total_mass = 0.0;
 
       if (node.hasParticles()) {
