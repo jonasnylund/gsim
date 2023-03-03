@@ -83,7 +83,7 @@ void Model::initialize() {
 void Model::rebuildTree() {
   Timer::byName("Tree: total")->set();
 
-  if (this->tree.empty()) {
+  if (!this->tree.empty()) {
     // Attempt to update the existing tree if possible.
     this->num_rebuilds += static_cast<unsigned int>(
       !this->tree.update(this->particles));

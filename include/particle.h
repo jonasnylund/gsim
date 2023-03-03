@@ -28,8 +28,8 @@ class Particle {
   numerical_types::ndarray delta_accelleration;
 
   numerical_types::real mass;
+  numerical_types::NodeKey containing_node = numerical_types::emptykey;
   unsigned int update_frequency = 1;
-  Node* containing_node = nullptr;
 };
 
 }

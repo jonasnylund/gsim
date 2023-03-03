@@ -54,7 +54,6 @@ int main(int argc, char *argv[]) {
   }
   if (verbose) {
     printf("Simulating %d particles for %d timesteps\n", num_particles, num_iterations);
-    printf("Writing output to %s\n", particles_path.c_str());
   }
 
   std::ofstream particles_file(particles_path);
@@ -90,6 +89,9 @@ int main(int argc, char *argv[]) {
 
   particles_file.close();
   tree_file.close();
+  if (verbose) {
+    printf("Writing output to %s\n", particles_path.c_str());
+  }
 
   model::Timer::byName("Teardown")->reset();
 
