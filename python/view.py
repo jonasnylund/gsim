@@ -19,8 +19,8 @@ def parse_line(line: str, ndims) -> Tuple[float, np.ndarray]:
   return t, particles
 
 def init_animation(ax: plt.Axes, sc):
-  ax.set_xlim(-200, 200)
-  ax.set_ylim(-200, 200)
+  ax.set_xlim(-250, 250)
+  ax.set_ylim(-250, 250)
   return sc
 
 def next_frame(frame: int, file_, tree_, scatter, figure, ax, ndims):

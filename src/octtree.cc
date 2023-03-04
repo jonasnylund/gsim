@@ -311,7 +311,6 @@ void Tree::Node::computeAccelleration(
 }
 
 // Tree
-
 void Tree::rebuild(std::vector<Particle>& particles) {
   // Clear the tree of nodes.
   this->clear();
@@ -369,13 +368,20 @@ bool Tree::update(std::vector<Particle>& particles) {
   return !rebuild_required;
 }
 
-void Tree::update() {
+void Tree::update(float fraction) {
   Timer::byName("Tree: aggregate")->set();
+
+  // Save computations by not updating the outermost nodes each
+  // iteration when only small updates has been made in the simulation.
+  const int deepest_index = this->height() - 1;
+  const int depth_limit = (1.0f - fraction) * deepest_index; 
+
   // Compute node quantities in parallel at each depth. Begin with
   // the leaf nodes and iterate over each depth in the tree in reverse.
-  for (int depth = this->height() - 1; depth >= 0; depth--) {
+  for (int depth = deepest_index; depth >= depth_limit; depth--) {
     const int num_iterations = this->nodes[depth].size();
-    #pragma omp parallel for schedule(static) \
+    #pragma omp parallel for \
+            schedule(static) \
             if (num_iterations > 64)
     for (int i = 0; i < num_iterations; i++) {
       Node& node = this->nodes[depth][i];
@@ -464,7 +470,7 @@ bool Tree::relocate(Particle* particle) {
     node = node->parent();
   }
   // If the root node did not contain the particle, we cannot add it.
-  if (node == nullptr){
+  if (node == nullptr) {
     return false;
   }
   // Don't add the particle again if the node does not

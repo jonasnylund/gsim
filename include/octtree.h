@@ -24,7 +24,7 @@ class Tree {
 
   // Partially updates the nodes of the tree without relocating
   // the particles.
-  void update();
+  void update(float fraction = 1.0f);
 
   // Compute the accelleration for a single particle.
   int computeAccelleration(
@@ -116,12 +116,6 @@ class Tree {
     // Returns true if this node has particles, false otherwise.
     inline bool hasParticles() const { return this->num_particles_local > 0; }
     inline Particle *& particle(int index) { return this->particles[index].particle; }
-
-    // Returns the total mass of this node.
-    inline numerical_types::real mass() const { return this->total_mass; }
-
-    // Returns the combined center of mass of this node.
-    inline numerical_types::ndarray centerOfMass() const { return this->center_of_mass; }
 
   protected:
     struct PseudoParticle {

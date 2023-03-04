@@ -27,7 +27,7 @@ float random() {
 Particle randomParticle(numerical_types::real pseudo_mass) {
   Particle particle;
 
-  numerical_types::real x = 50 + 10 * random() + std::pow(random(), 2) * 200.0;
+  numerical_types::real x = 5 + 10 * random() + std::pow(random(), 2) * 200.0;
   numerical_types::real angle = random() * 2 * M_PI;
   numerical_types::real v = 0.1 + std::sqrt(numerical_types::G * pseudo_mass / x);
 
@@ -97,8 +97,21 @@ void Model::rebuildTree() {
 }
 
 void Model::updateTree() {
+  assert(this->substep_counter >= 0);
+  assert(this->substep_counter < this->substep_frequency);
+  assert(this->substep_frequency > 0);
   Timer::byName("Tree: total")->set();
-  this->tree.update();
+  // Reduce the accuracy of the tree slightly by
+  // only updating the most deepest nodes to save
+  // computations.
+  float update_fraction = 1.0f;
+
+  for (int i = 2; i <= this->substep_frequency; i *= 2) {
+    if (this->substep_counter % i != 0)
+      update_fraction /= 2.0f;
+  }
+
+  this->tree.update(update_fraction);
   Timer::byName("Tree: total")->reset();
 }
 
@@ -125,7 +138,6 @@ void Model::updateParticles() {
           this->substep_frequency / particle.update_frequency) != 0) {
       continue;
     }
-
     numerical_types::ndarray accelleration;
     accelleration.fill(0.0);
     num_interactions += this->tree.computeAccelleration(
@@ -191,18 +203,19 @@ void Model::step(numerical_types::real time) {
   
   numerical_types::real endtime = this->time + time;
   while (std::abs(this->time - endtime) > std::abs(this->dtime)) {
+    const int num_particles = this->particles.size();
     this->substep_counter = 0;
     this->rebuildTree();
 
     while (this->substep_counter < this->substep_frequency) {
       // Only update the tree without calculating new particle
       // positions. But don't update the tree twice on the first
-      // iteration when we already rebuilt the tree.
+      // iteration when we just rebuilt the tree fully.
       if (this->substep_counter > 0)
         this->updateTree();
 
       this->updateParticles();
-
+      
       this->num_iterations++;
       this->substep_counter++;
     }
