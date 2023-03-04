@@ -73,6 +73,9 @@ class Tree {
       const numerical_types::ndarray& center,
       numerical_types::real width);
 
+    Node(Node&&) = default;
+    Node& operator=(Node&&) = default; 	
+
     // Checks whether a point is in the bounding box of this node.
     bool contains(const numerical_types::ndarray& point) const;
 
@@ -148,6 +151,8 @@ class Tree {
     // Moves all contained particles into this node, if possible.
     void gatherChildParticles();
 
+    void updateKey(numerical_types::NodeKey key);
+
     // Clear all particles from this node and all child nodes.
     void clear();
 
@@ -156,11 +161,11 @@ class Tree {
     numerical_types::ndarray center;
     numerical_types::real width;
 
-    const numerical_types::NodeKey id;
-    const numerical_types::NodeKey parent_id;
+    numerical_types::NodeKey id;
+    numerical_types::NodeKey parent_id;
 
-    Tree* const tree;
-    const numerical_types::depth_key_t depth;
+    Tree* tree;
+    numerical_types::depth_key_t depth;
     std::array<numerical_types::NodeKey, num_subnodes> children;
     std::array<PseudoParticle, max_num_particles> particles;
     int num_particles_local = 0;

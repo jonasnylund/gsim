@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from typing import Tuple
+
 import functools
 import os
 import sys
@@ -11,10 +12,10 @@ import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation
 
 
-def parse_line(line: str) -> Tuple[float, np.ndarray]:
+def parse_line(line: str, ndims) -> Tuple[float, np.ndarray]:
   data = np.fromstring(line, sep=",")
   t = data[0]
-  particles = data[1: -1].reshape((-1, 3))
+  particles = data[1: -1].reshape((-1, 1+ndims))
   return t, particles
 
 def init_animation(ax: plt.Axes, sc):
@@ -22,12 +23,12 @@ def init_animation(ax: plt.Axes, sc):
   ax.set_ylim(-200, 200)
   return sc
 
-def next_frame(frame: int, file_, tree_, scatter, figure, ax):
+def next_frame(frame: int, file_, tree_, scatter, figure, ax, ndims):
   line = file_.readline()
   if line is None or len(line) < 5:
     raise StopIteration
 
-  t, data = parse_line(line)
+  t, data = parse_line(line, ndims)
   figure.suptitle(f"Time: {t:.1f}")
 
   # scatter = ax.scatter(data[:, 1], data[:, 2], s=np.sqrt(data[:, 0]) * 10)
@@ -48,6 +49,7 @@ def next_frame(frame: int, file_, tree_, scatter, figure, ax):
 
 
 if __name__ == "__main__":
+  ndims = 3
   if not len(sys.argv) > 1:
     raise ValueError('Must provide path to input file as first argument')
   path = sys.argv[1]
@@ -65,7 +67,7 @@ if __name__ == "__main__":
   else:
     t = None
   with open(path) as f:
-    update = functools.partial(next_frame, file_=f, tree_=t, scatter=sc, figure=fig, ax=ax)
+    update = functools.partial(next_frame, file_=f, tree_=t, scatter=sc, figure=fig, ax=ax, ndims=ndims)
     init = functools.partial(init_animation, ax=ax, sc=sc)
 
     animation = FuncAnimation(fig, update, init_func=init, interval=30)

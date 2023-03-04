@@ -27,7 +27,7 @@ float random() {
 Particle randomParticle(numerical_types::real pseudo_mass) {
   Particle particle;
 
-  numerical_types::real x = 5 + 10 * random() + std::pow(random(), 2) * 200.0;
+  numerical_types::real x = 50 + 10 * random() + std::pow(random(), 2) * 200.0;
   numerical_types::real angle = random() * 2 * M_PI;
   numerical_types::real v = 0.1 + std::sqrt(numerical_types::G * pseudo_mass / x);
 
@@ -208,8 +208,7 @@ void Model::step(numerical_types::real time) {
     }
     this->time += this->dtime;
   }
-  // TODO: Reenable once new allocation is fixed.
-  // this->tree.prune();
+  this->tree.prune();
 
   Timer::byName("Timestepping")->reset();
 }

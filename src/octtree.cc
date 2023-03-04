@@ -107,6 +107,32 @@ void Tree::Node::remove(Particle* particle) {
   }
 }
 
+void Tree::Node::updateKey(numerical_types::NodeKey key) {
+  Node* parent = this->parent();
+  if (parent != nullptr) {
+    for (int i = 0; i < num_subnodes; i++) {
+      if (parent->children[i] == this->id) {
+        parent->children[i] = key;
+        break;
+      }
+    }
+  }
+  if (this->hasParticles()) {
+    for (int i = 0; i < max_num_particles; i++) {
+      if (this->particle(i) != nullptr) {
+        this->particle(i)->containing_node = key;
+      }
+    }
+  }
+  if (this->hasChildren()) {
+    for (int i = 0; i < num_subnodes; i++) {
+      this->child(i)->parent_id = key;
+    }
+  }
+
+  this->id = key;
+}
+
 void Tree::Node::gatherChildParticles() {
   assert(this->num_particles_contained <= max_num_particles);
   if (!this->hasChildren()) {
@@ -345,10 +371,9 @@ bool Tree::update(std::vector<Particle>& particles) {
 
 void Tree::update() {
   Timer::byName("Tree: aggregate")->set();
-
   // Compute node quantities in parallel at each depth. Begin with
   // the leaf nodes and iterate over each depth in the tree in reverse.
-  for (int depth = this->nodes.size() - 1; depth >= 0; depth--) {
+  for (int depth = this->height() - 1; depth >= 0; depth--) {
     const int num_iterations = this->nodes[depth].size();
     #pragma omp parallel for schedule(static) \
             if (num_iterations > 64)
@@ -412,7 +437,7 @@ int Tree::computeAccelleration(
 
 int Tree::numNodes() const {
   int num_nodes = 0;
-  for (int i = 0; i < this->nodes.size(); i++) {
+  for (int i = 0; i < this->height(); i++) {
     num_nodes += this->nodes[i].size();
   }
   return num_nodes;
@@ -478,8 +503,8 @@ numerical_types::NodeKey Tree::allocateNode(
     depth = 0;
   }
 
-  assert(this->nodes.size() + 1 >= depth);
-  if (this->nodes.size() <= depth) {
+  assert(this->height() + 1 >= depth);
+  if (this->height() <= depth) {
     this->nodes.resize(depth + 1);
   }
 
@@ -493,7 +518,49 @@ numerical_types::NodeKey Tree::allocateNode(
 }
 
 void Tree::prune() {
-  // TODO: prune nodes vectors.
+  Timer::byName("Tree: pruning")->set();
+  
+  // Don't prune all the way to the root node.
+  for (int depth = this->height() - 1; depth > 0; depth--) {
+    std::vector<Node>& node_vector = this->nodes[depth];
+
+    int index = 0;
+    while (index < node_vector.size()) {
+      Node& node = node_vector[index];
+      Node* parent = node.parent();
+
+      // Get all nodes that share this parent, as they should
+      // all be pruned together.
+      if (parent->num_particles_contained > 0) {
+        // Don't prune nodes whos' parent node has particles.
+        index += num_subnodes;
+        continue;
+      }
+      // Get iterators to the range to prune.
+      std::vector<Node>::iterator erase_begin = node_vector.begin() + index;
+      std::vector<Node>::iterator erase_end = node_vector.begin() + index + num_subnodes;
+
+      // Erase the nodes, and update the parent to be child-less.
+      node_vector.erase(erase_begin, erase_end);
+      parent->children.fill(numerical_types::emptykey);
+    }
+
+    // Recalculate the ids for the nodes that remain.
+    for (index = 0; index < node_vector.size(); index++) {
+      numerical_types::NodeKey key;
+      key.depth = depth;
+      key.index = index;
+      Node& node = node_vector[index];
+
+      if (node.id == key) {
+        // Nothing to update.
+        continue;
+      }
+      node.updateKey(key);
+    } 
+  }
+
+  Timer::byName("Tree: pruning")->reset();
 }
 
 void Tree::write(std::ofstream& file) const {

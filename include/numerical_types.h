@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <array>
 
 namespace numerical_types {
 
 // Number of dimensions in the simulation.
-constexpr int num_dimensions = 2;
+constexpr int num_dimensions = 3;
 
 // Machine precision type.
 typedef double real;

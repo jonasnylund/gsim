@@ -7,6 +7,8 @@
 #include <string>
 #include <typeinfo> 
 
+#include <omp.h>
+
 #include "numerical_types.h"
 #include "model.h"
 #include "timers.h"
@@ -55,6 +57,9 @@ int main(int argc, char *argv[]) {
   if (verbose) {
     printf("Simulating %d particles for %d timesteps\n", num_particles, num_iterations);
   }
+  
+  // Avoid using hyperthreading.
+  omp_set_num_threads(omp_get_num_procs() / 2);
 
   std::ofstream particles_file(particles_path);
   std::ofstream tree_file(tree_path);
