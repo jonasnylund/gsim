@@ -29,6 +29,8 @@ class Model {
 
   void setTheta(numerical_types::real theta);
 
+  void setSubstepUpdateRatio(float ratio);
+
   // Return the current time of the simulation.
   numerical_types::real getTime() const;
 
@@ -56,6 +58,7 @@ class Model {
   numerical_types::real dtime = 0.1;
   numerical_types::real theta = 0.5;
   numerical_types::real epsilon = 1e-3;
+  float substep_update_ratio = 0.0;
   unsigned int num_iterations = 0;
   unsigned long num_interactions = 0;
 

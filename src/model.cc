@@ -108,7 +108,7 @@ void Model::updateTree() {
 
   for (int i = 2; i <= this->substep_frequency; i *= 2) {
     if (this->substep_counter % i != 0)
-      update_fraction /= 2.0f;
+      update_fraction /= (1.0f + this->substep_update_ratio);
   }
 
   this->tree.update(update_fraction);
@@ -240,6 +240,10 @@ void Model::setTheta(numerical_types::real theta) {
   this->theta = theta;
 }
 
+void Model::setSubstepUpdateRatio(float ratio) {
+  this->substep_update_ratio = ratio;
+}
+
 numerical_types::real Model::getTime() const {
   return this->time;
 }
@@ -269,6 +273,11 @@ void Model::writeTree(std::ofstream& file) const {
 }
 
 void Model::printStats() const {
+  printf("\n--- Final state: ---\n");
+  printf("Num particles: %zu\n", this->particles.size());
+  printf("Tree height:   %d\n", this->tree.height());
+  printf("Tree nodes:    %d\n", this->tree.numNodes());
+
   printf("\n--- Stats for run: ---\n");
   printf("Number of iterations:   %u\n", this->num_iterations);
   printf("Number of interactions: %lu\n", this->num_interactions);

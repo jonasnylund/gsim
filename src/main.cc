@@ -20,6 +20,7 @@ int main(int argc, char *argv[]) {
   numerical_types::real theta = 0.5;
   numerical_types::real epsilon = 1.0;
   numerical_types::real dt = 0.01;
+  float substep_ratio = 0.4142;
   bool verbose = true;
 
   std::string particles_path("particles.csv");
@@ -46,6 +47,9 @@ int main(int argc, char *argv[]) {
       epsilon = atof(argv[++i]);
     }
     else if (strncmp(argv[i], "--dtime", 7) == 0) {
+      substep_ratio = atof(argv[++i]);
+    }
+    else if (strncmp(argv[i], "--updateratio", 7) == 0) {
       dt = atof(argv[++i]);
     }
     else if (strncmp(argv[i], "-q", 2) == 0 || strncmp(argv[i], "--quiet", 8) == 0) {
@@ -71,6 +75,7 @@ int main(int argc, char *argv[]) {
   model.setEpsilon(epsilon);
   model.setTheta(theta);
   model.setTimeStep(dt);
+  model.setSubstepUpdateRatio(substep_ratio);
 
   model.randomParticles(num_particles);
   model.initialize();
