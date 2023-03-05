@@ -370,6 +370,8 @@ bool Tree::update(std::vector<Particle>& particles) {
 
 void Tree::update(float fraction) {
   Timer::byName("Tree: aggregate")->set();
+  assert(fraction > 0.0f);
+  assert(fraction <= 1.0f);
 
   // Save computations by not updating the outermost nodes each
   // iteration when only small updates has been made in the simulation.

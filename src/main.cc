@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   std::string particles_path("particles.csv");
   std::string tree_path("tree.csv");
 
-  int i = 0;
+  int i = 1;
   while (i < argc) {
     if (strncmp(argv[i], "-p", 2) == 0 || strncmp(argv[i], "--particles", 11) == 0) {
       num_particles = atoi(argv[++i]);
@@ -47,13 +47,16 @@ int main(int argc, char *argv[]) {
       epsilon = atof(argv[++i]);
     }
     else if (strncmp(argv[i], "--dtime", 7) == 0) {
-      substep_ratio = atof(argv[++i]);
-    }
-    else if (strncmp(argv[i], "--updateratio", 7) == 0) {
       dt = atof(argv[++i]);
+    }
+    else if (strncmp(argv[i], "--updateratio", 14) == 0) {
+      substep_ratio = atof(argv[++i]);
     }
     else if (strncmp(argv[i], "-q", 2) == 0 || strncmp(argv[i], "--quiet", 8) == 0) {
       verbose = !atoi(argv[++i]);
+    }
+    else {
+      printf("Unknown argument: %s\n", argv[i]);
     }
 
     i++;
