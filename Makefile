@@ -1,6 +1,6 @@
 IDIR=include
 CXX=g++
-CFLAGS=-I$(IDIR) -g -O3 -fopenmp --std=c++17
+CFLAGS=-I$(IDIR) -O3 -fopenmp --std=c++17
 
 OBJDIR=obj
 SRCDIR=src

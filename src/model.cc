@@ -244,6 +244,7 @@ void Model::setTheta(numerical_types::real theta) {
 }
 
 void Model::setSubstepUpdateRatio(float ratio) {
+  assert(ratio >= 0.0);
   this->substep_update_ratio = ratio;
 }
 
@@ -287,9 +288,17 @@ void Model::writeTree(std::ofstream& file) const {
 
 void Model::printStats() const {
   printf("\n--- Final state: ---\n");
+  printf("Time:          %.0f\n", this->time);
   printf("Num particles: %zu\n", this->particles.size());
   printf("Tree height:   %d\n", this->tree.height());
   printf("Tree nodes:    %d\n", this->tree.numNodes());
+
+  printf("\nParameters:\n");
+  printf("Delta T:  %.3f\n", this->dtime);
+  printf("Theta:    %.3f\n", this->theta);
+  printf("Epsilon:  %.3f\n", this->epsilon);
+  printf("Phi:      %.3f\n", this->substep_update_ratio);
+
 
   printf("\n--- Stats for run: ---\n");
   printf("Number of iterations:   %u\n", this->num_iterations);
