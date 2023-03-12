@@ -12,10 +12,20 @@ import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation
 
 
-def parse_line(line: str, ndims) -> Tuple[float, np.ndarray]:
-  data = np.fromstring(line, sep=",")
+SIZE_T_BYTES = 8
+DATA_DTYPE = np.float64
+
+
+def get_from_file(file_, ndims) -> Tuple[float, np.ndarray]:
+  header = file_.read(SIZE_T_BYTES)
+  if header == b'':
+    return StopIteration
+
+  bytes_size = np.frombuffer(header, dtype=np.uint64)
+  data = file_.read(bytes_size[0])
+  data = np.frombuffer(data, DATA_DTYPE)
   t = data[0]
-  particles = data[1: -1].reshape((-1, 1+ndims))
+  particles = data[1:].reshape((-1, 1+ndims))
   return t, particles
 
 def init_animation(ax: plt.Axes, sc):
@@ -24,25 +34,19 @@ def init_animation(ax: plt.Axes, sc):
   return sc
 
 def next_frame(frame: int, file_, tree_, scatter, figure, ax, ndims):
-  line = file_.readline()
-  if line is None or len(line) < 5:
-    raise StopIteration
-
-  t, data = parse_line(line, ndims)
+  data = get_from_file(file_, ndims)
+  if data == StopIteration:
+    return StopIteration
+  t, data = data
   figure.suptitle(f"Time: {t:.1f}")
-
-  # scatter = ax.scatter(data[:, 1], data[:, 2], s=np.sqrt(data[:, 0]) * 10)
 
   scatter.set_sizes(np.sqrt(data[:, 0]) * 10)
   scatter.set_offsets(data[:, 1:])
 
   if tree_ is not None:
-    line = tree_.readline()
-    t2, data = parse_line(line)
+    t2, data = get_from_file(tree_, ndims)
     assert(t == t2)
-    l = len(ax.patches)
-    while(len(ax.patches) > 0):
-      ax.patches[0].remove()
+    ax.patches.clear()
     for r in data:
       ax.add_patch(patches.Rectangle(r[1:] - r[0], width=r[0] * 2, height=r[0] * 2, fill=False))
   return scatter
@@ -63,10 +67,10 @@ if __name__ == "__main__":
 
   
   if tree is not None:
-    t = open(tree)
+    t = open(tree, "rb")
   else:
     t = None
-  with open(path) as f:
+  with open(path, "rb") as f:
     update = functools.partial(next_frame, file_=f, tree_=t, scatter=sc, figure=fig, ax=ax, ndims=ndims)
     init = functools.partial(init_animation, ax=ax, sc=sc)
 

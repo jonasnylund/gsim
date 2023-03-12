@@ -66,6 +66,9 @@ void Model::randomParticles(int num_particles) {
 }
 
 void Model::initialize() {
+  // Avoid hyperthreading.
+  omp_set_num_threads(omp_get_num_procs() / 2);
+
   this->rebuildTree();
   this->substep_counter = 0;
   this->substep_frequency = 1;
@@ -250,24 +253,34 @@ numerical_types::real Model::getTime() const {
 
 void Model::writeParticles(std::ofstream& file) const {
   Timer::byName("IO")->set();
+  const size_t real_bytes = sizeof(numerical_types::real);
+  const size_t n_particles = this->particles.size();
+  const size_t bytes_to_write = real_bytes + n_particles * (
+    numerical_types::ndarray_bytes_size + real_bytes);
 
-  file << this->time << ", ";
+  // First write out the number of bytes to write.
+  file.write(reinterpret_cast<const char*>(&bytes_to_write), sizeof(bytes_to_write));
+  file.write(reinterpret_cast<const char*>(&this->time), real_bytes);
+
   for (const Particle& particle: this->particles) {
-    file << particle.mass << ", ";
-    for (int i = 0; i < numerical_types::num_dimensions; i++) {
-      file << particle.position[i] << ", ";
-    }
+    file.write(reinterpret_cast<const char*>(&particle.mass), real_bytes);
+    file.write(reinterpret_cast<const char*>(particle.position.data()),
+               numerical_types::ndarray_bytes_size);
   }
-  file << "\n";
   Timer::byName("IO")->reset();
 }
 
 void Model::writeTree(std::ofstream& file) const {
   Timer::byName("IO")->set();
+  const size_t real_bytes = sizeof(numerical_types::real);
+  const size_t num_nodes = this->tree.numNodes();
+  const size_t bytes_to_write = real_bytes + num_nodes * (
+    numerical_types::ndarray_bytes_size + real_bytes);
 
-  file << this->time << ", ";
+// First write out the number of bytes to write.
+  file.write(reinterpret_cast<const char*>(&bytes_to_write), sizeof(bytes_to_write));
+  file.write(reinterpret_cast<const char*>(&this->time), real_bytes);
   this->tree.write(file);
-  file << "\n";
 
   Timer::byName("IO")->reset();
 }

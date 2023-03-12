@@ -35,6 +35,7 @@
 *.csv
 *.txt
 *.gmon
+*.bin
 
 gsim
 *vscode*

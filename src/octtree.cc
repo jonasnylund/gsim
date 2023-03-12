@@ -572,9 +572,9 @@ void Tree::prune() {
 }
 
 void Tree::write(std::ofstream& file) const {
+  const size_t real_bytes = sizeof(numerical_types::real);
   std::stack<const Tree::Node*> stack;
   stack.push(this->rootNode());
-
   while(!stack.empty()) {
     const Tree::Node* current = stack.top();
     stack.pop();
@@ -585,10 +585,9 @@ void Tree::write(std::ofstream& file) const {
       }
     }
 
-    file << current->width << ", ";
-    for (int i = 0; i < numerical_types::num_dimensions; i++) {
-      file << current->center[i] << ", ";
-    }
+    file.write(reinterpret_cast<const char*>(&current->width), real_bytes);
+    file.write(reinterpret_cast<const char*>(current->center.data()),
+               numerical_types::ndarray_bytes_size);
   }
 }
 

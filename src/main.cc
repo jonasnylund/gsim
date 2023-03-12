@@ -23,8 +23,8 @@ int main(int argc, char *argv[]) {
   float substep_ratio = 0.4142;
   bool verbose = true;
 
-  std::string particles_path("particles.csv");
-  std::string tree_path("tree.csv");
+  std::string particles_path("particles.bin");
+  std::string tree_path("tree.bin");
 
   int i = 1;
   while (i < argc) {
@@ -64,9 +64,6 @@ int main(int argc, char *argv[]) {
   if (verbose) {
     printf("Simulating %d particles for %d timesteps\n", num_particles, num_iterations);
   }
-  
-  // Avoid using hyperthreading.
-  omp_set_num_threads(omp_get_num_procs() / 2);
 
   std::ofstream particles_file(particles_path);
   std::ofstream tree_file(tree_path);
