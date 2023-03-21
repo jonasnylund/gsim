@@ -41,14 +41,14 @@ def next_frame(frame: int, file_, tree_, scatter, figure, ax, ndims):
   figure.suptitle(f"Time: {t:.1f}")
 
   scatter.set_sizes(np.sqrt(data[:, 0]) * 10)
-  scatter.set_offsets(data[:, 1:])
+  scatter.set_offsets(data[:, 1:3])
 
   if tree_ is not None:
     t2, data = get_from_file(tree_, ndims)
     assert(t == t2)
     ax.patches.clear()
     for r in data:
-      ax.add_patch(patches.Rectangle(r[1:] - r[0], width=r[0] * 2, height=r[0] * 2, fill=False))
+      ax.add_patch(patches.Rectangle(r[1:3] - r[0], width=r[0] * 2, height=r[0] * 2, fill=False))
   return scatter
 
 

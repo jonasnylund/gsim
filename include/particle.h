@@ -16,7 +16,9 @@ class Particle {
   static void reset(std::vector<Particle>& particles);
 
   // Set the current accelleration and return the preferred update frequency.
-  unsigned int setAccelleration(const numerical_types::ndarray& accelleration);
+  unsigned int setAccelleration(
+    const numerical_types::ndarray& accelleration,
+    const numerical_types::real dtime);
 
   void update(numerical_types::real dt,
               numerical_types::real substep_progress = 0.0,

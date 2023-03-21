@@ -78,7 +78,7 @@ void Model::initialize() {
       numerical_types::ndarray accelleration = {0.0};
       num_interactions += this->tree.computeAccelleration(
           particle, this->theta, this->epsilon, accelleration);
-      particle.setAccelleration(accelleration);
+      particle.setAccelleration(accelleration, this->dtime);
       particle.update_frequency = 1;
   }
 }
@@ -147,14 +147,14 @@ void Model::updateParticles() {
         particle, this->theta, this->epsilon, accelleration);
 
     // Set the new accelleration and get the preferred new update frequency.
-    unsigned int frequency = particle.setAccelleration(accelleration);
+    unsigned int frequency = particle.setAccelleration(accelleration, this->dtime);
 
     // Check if the update frequency should and/or can be changed.
     if (particle.update_frequency < frequency) {
       particle.update_frequency = frequency;
     }
     else if (particle.update_frequency > frequency && substep_is_even) {
-      particle.update_frequency /= 2;
+      particle.update_frequency >>= 1;
     }
     // Since we only lower the substep_frequency by half on even substeps,
     // all particles that is not updated have a frequency that is lower or equal
@@ -173,8 +173,8 @@ void Model::updateParticles() {
     this->substep_frequency = max_frequency;
   }
   else if (this->substep_frequency > max_frequency && substep_is_even) {
-    this->substep_frequency /= 2;
-    this->substep_counter /= 2;
+    this->substep_frequency >>= 1;
+    this->substep_counter >>= 1;
   }
 
   const numerical_types::real dtime = this->dtime / this->substep_frequency;

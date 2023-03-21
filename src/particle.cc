@@ -39,7 +39,9 @@ void Particle::reset(std::vector<Particle>& particles) {
   }
 }
 
-unsigned int Particle::setAccelleration(const numerical_types::ndarray& accelleration) {
+unsigned int Particle::setAccelleration(
+    const numerical_types::ndarray& accelleration,
+    const numerical_types::real dtime) {
   numerical_types::real accelleration_magnitude = 0.0;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
     this->accelleration[i] += this->delta_accelleration[i];
@@ -47,10 +49,12 @@ unsigned int Particle::setAccelleration(const numerical_types::ndarray& acceller
     accelleration_magnitude += accelleration[i] * accelleration[i];
   }
 
+  accelleration_magnitude *= std::sqrt(dtime);
   // Calculate the frequency of the accelleration calculation of this particle.
   // The update frequency must be a multiple of 2.
-  return static_cast<unsigned int>(
-    std::pow(2.0, std::clamp(static_cast<int>(std::log2(accelleration_magnitude * 2)), 0, max_log_frequency)));
+  int log_acc = 2 + static_cast<int>(std::log2(accelleration_magnitude));
+  log_acc = std::clamp(log_acc, 0, max_log_frequency);
+  return 1U << log_acc;
 }
 
 void Particle::update(numerical_types::real dt,

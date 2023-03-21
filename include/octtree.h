@@ -11,8 +11,7 @@
 namespace model {
 
 constexpr int num_subnodes = (1 << numerical_types::num_dimensions);
-constexpr int max_num_particles = 8;
-
+constexpr int max_num_particles = 4;
 
 class Tree {
  public:
@@ -111,7 +110,11 @@ class Tree {
     inline const Node* child(int index) const {
       return this->tree->getNode(this->children[index]);
     }
-    inline Node* parent() const { return this->tree->getNode(this->parent_id); }
+    inline Node* parent() const {
+      if (this->parent_id == numerical_types::emptykey)
+        return nullptr;
+      return this->tree->getNode(this->parent_id);
+    }
 
     // Returns true if this node has particles, false otherwise.
     inline bool hasParticles() const { return this->num_particles_local > 0; }
@@ -187,13 +190,9 @@ class Tree {
   }
 
   inline Node* getNode(numerical_types::NodeKey key) {
-    if (key == numerical_types::emptykey)
-      return nullptr;
     return &this->nodes[key.depth][key.index];
   }
   inline const Node* getNode(numerical_types::NodeKey key) const {
-    if (key == numerical_types::emptykey)
-      return nullptr;
     return &this->nodes[key.depth][key.index];
   }
 
