@@ -204,8 +204,9 @@ void Model::updateParticles() {
 void Model::step(numerical_types::real time) {
   Timer::byName("Timestepping")->set();
   
-  numerical_types::real endtime = this->time + time;
-  while (std::abs(this->time - endtime) > std::abs(this->dtime)) {
+  while (
+    std::abs(time - this->time) > std::abs(this->dtime / 2.0)
+    ) {
     const int num_particles = this->particles.size();
     this->substep_counter = 0;
     this->rebuildTree();
@@ -292,6 +293,7 @@ void Model::printStats() const {
   printf("Num particles: %zu\n", this->particles.size());
   printf("Tree height:   %d\n", this->tree.height());
   printf("Tree nodes:    %d\n", this->tree.numNodes());
+  printf("Dimensions:    %d\n", numerical_types::num_dimensions);
 
   printf("\nParameters:\n");
   printf("Delta T:  %.3f\n", this->dtime);

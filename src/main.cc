@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
       substep_ratio = atof(argv[++i]);
     }
     else if (strncmp(argv[i], "-q", 2) == 0 || strncmp(argv[i], "--quiet", 8) == 0) {
-      verbose = !atoi(argv[++i]);
+      verbose = false;
     }
     else {
       printf("Unknown argument: %s\n", argv[i]);
@@ -84,13 +84,17 @@ int main(int argc, char *argv[]) {
 
   model::Timer::byName("Setup")->reset();
 
-  while (model.getTime() < num_iterations) {
-    model.step(1.0);
+
+  for (int i = 1; i <= num_iterations; i++) {
+    model.step(static_cast<numerical_types::real>(i));
+
     model.writeParticles(particles_file);
     model.writeTree(tree_file);
 
-    printf("T: %.1f s\r", model.getTime());
-    std::fflush(stdout);
+    if (verbose) {
+      printf("T: %.1f s\r", model.getTime());
+      std::fflush(stdout);
+    }
   }
 
   printf("T: %.1f s\n", model.getTime());
@@ -105,11 +109,9 @@ int main(int argc, char *argv[]) {
 
   model::Timer::byName("Teardown")->reset();
 
-  if (verbose) {
-    model.printStats();
-    printf("\n");
-    model::Timer::write();
-  }
+  model.printStats();
+  printf("\n");
+  model::Timer::write();
 
   return 0;
 }

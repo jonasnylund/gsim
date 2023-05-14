@@ -26,8 +26,8 @@ class Particle {
 
   numerical_types::ndarray position;
   numerical_types::ndarray velocity;
-  numerical_types::ndarray accelleration;
-  numerical_types::ndarray delta_accelleration;
+  numerical_types::ndarray current_accelleration;
+  numerical_types::ndarray previous_accelleration;
 
   numerical_types::real mass;
   numerical_types::NodeKey containing_node = numerical_types::emptykey;

@@ -42,10 +42,11 @@ void Particle::reset(std::vector<Particle>& particles) {
 unsigned int Particle::setAccelleration(
     const numerical_types::ndarray& accelleration,
     const numerical_types::real dtime) {
+  this->previous_accelleration = this->current_accelleration;
+  this->current_accelleration = accelleration;
+
   numerical_types::real accelleration_magnitude = 0.0;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    this->accelleration[i] += this->delta_accelleration[i];
-    this->delta_accelleration[i] = accelleration[i] - this->accelleration[i];
     accelleration_magnitude += accelleration[i] * accelleration[i];
   }
 
@@ -60,15 +61,16 @@ unsigned int Particle::setAccelleration(
 void Particle::update(numerical_types::real dt,
                       numerical_types::real substep_progress,
                       numerical_types::real substep_length) {
-  constexpr numerical_types::real one_half = 0.5;
+  const numerical_types::real dt_by_2 = 0.5 * dt;
 
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    const numerical_types::real a1 = this->accelleration[i] + this->delta_accelleration[i] * substep_progress;
-    const numerical_types::real a2 = a1 + this->delta_accelleration[i] * substep_length;
+    const numerical_types::real delta = this->current_accelleration[i] - this->previous_accelleration[i];
+    const numerical_types::real a1 = this->previous_accelleration[i] + delta * substep_progress;
+    const numerical_types::real a2 = a1 + delta * substep_length;
 
-    this->velocity[i] += a1 * dt * one_half;
+    this->velocity[i] += a1 * dt_by_2;
     this->position[i] += this->velocity[i] * dt;
-    this->velocity[i] += a2 * dt * one_half;
+    this->velocity[i] += a2 * dt_by_2;
   }
 }
 
