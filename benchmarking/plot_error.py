@@ -35,8 +35,8 @@ def read_file(path: str) -> List[SingleState]:
   return outputs
 
 
-def get_rmserror(path: str) -> np.ndarray:
-  exact = read_file('exact/particles.bin')
+def get_rmserror(base: str, path: str) -> np.ndarray:
+  exact = read_file(os.path.join(base, 'exact/particles.bin'))
   measurement = read_file(os.path.join(path, 'particles.bin'))
 
   print(len(exact), len(measurement))
@@ -49,14 +49,22 @@ def get_rmserror(path: str) -> np.ndarray:
 
 
 if __name__ == '__main__':
+  print(sys.argv)
+  base_path = sys.argv[1]
+  # baseline = get_rmserror(base_path, os.path.join(base_path, 'baseline'))
+
   fig, ax = plt.subplots(figsize=(10, 3))
-  baseline = get_rmserror('baseline')
-  for arg in sys.argv[1:]:
-    data = get_rmserror(arg)
-    ax.plot(data[:, 0], data[:, 1] - baseline[:, 1], label=arg)
+  for arg in sys.argv[2:]:
+    data = get_rmserror(base_path, arg)
+    ax.plot(
+      data[:, 0],
+      data[:, 1],  #- baseline[:, 1],
+      label=os.path.basename(arg).capitalize(),
+      )
   ax.legend()
   ax.set_xlabel('Timestep')
   ax.set_ylabel('delta RMSE')
 
+  fig.tight_layout()
   # fig.show()
   plt.show()

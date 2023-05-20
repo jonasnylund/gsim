@@ -17,10 +17,10 @@
 int main(int argc, char *argv[]) {
   int num_particles = 300;
   int num_iterations = 300;
-  numerical_types::real theta = 0.5;
-  numerical_types::real epsilon = 0.25;
+  numerical_types::real theta = 0.4;
+  numerical_types::real epsilon = 0.1;
   numerical_types::real dt = 0.01;
-  float substep_ratio = 0.25;
+  float substep_ratio = 0.0;
   bool verbose = true;
 
   std::string particles_path("particles.bin");
@@ -83,7 +83,6 @@ int main(int argc, char *argv[]) {
   model.writeTree(tree_file);
 
   model::Timer::byName("Setup")->reset();
-
 
   for (int i = 1; i <= num_iterations; i++) {
     model.step(static_cast<numerical_types::real>(i));

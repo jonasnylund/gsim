@@ -80,6 +80,14 @@ def parse_stats(path: str) -> Scenario:
 
       key = match["name"].replace(":", "").replace(" ", "_").lower()
       current[key] = float(match["value"])
+
+  if dictionaries:
+    iterations.append(SingleRun(
+      dictionaries["parameters"],
+      dictionaries["timers"],
+      dictionaries["stats"],
+      dictionaries["state"],
+      ))
     
   return Scenario(iterations)
 

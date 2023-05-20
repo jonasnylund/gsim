@@ -88,8 +88,9 @@ void Model::rebuildTree() {
 
   if (!this->tree.empty()) {
     // Attempt to update the existing tree if possible.
-    this->num_rebuilds += static_cast<unsigned int>(
-      !this->tree.update(this->particles));
+    if (!this->tree.relocate(this->particles)) {
+      this->num_rebuilds++;
+    }
   }
   else {
     this->tree.rebuild(this->particles);
@@ -209,23 +210,25 @@ void Model::step(numerical_types::real time) {
     ) {
     const int num_particles = this->particles.size();
     this->substep_counter = 0;
-    this->rebuildTree();
+    // this->rebuildTree();
 
     while (this->substep_counter < this->substep_frequency) {
       // Only update the tree without calculating new particle
       // positions. But don't update the tree twice on the first
       // iteration when we just rebuilt the tree fully.
-      if (this->substep_counter > 0)
-        this->updateTree();
+      // if (this->substep_counter > 0)
+      //   this->updateTree();
+      this->rebuildTree();
+      this->updateTree();
 
       this->updateParticles();
       
       this->num_iterations++;
       this->substep_counter++;
     }
+    this->tree.prune();
     this->time += this->dtime;
   }
-  this->tree.prune();
 
   Timer::byName("Timestepping")->reset();
 }
@@ -279,7 +282,7 @@ void Model::writeTree(std::ofstream& file) const {
   const size_t bytes_to_write = real_bytes + num_nodes * (
     numerical_types::ndarray_bytes_size + real_bytes);
 
-// First write out the number of bytes to write.
+  // First write out the number of bytes to write.
   file.write(reinterpret_cast<const char*>(&bytes_to_write), sizeof(bytes_to_write));
   file.write(reinterpret_cast<const char*>(&this->time), real_bytes);
   this->tree.write(file);
@@ -290,9 +293,10 @@ void Model::writeTree(std::ofstream& file) const {
 void Model::printStats() const {
   printf("\n--- Final state: ---\n");
   printf("Time:          %.0f\n", this->time);
-  printf("Num particles: %zu\n", this->particles.size());
+  printf("Num particles: %d\n", this->tree.countLeafNodes().second);
   printf("Tree height:   %d\n", this->tree.height());
   printf("Tree nodes:    %d\n", this->tree.numNodes());
+  printf("Leaf nodes:    %d\n", this->tree.countLeafNodes().first);
   printf("Dimensions:    %d\n", numerical_types::num_dimensions);
 
   printf("\nParameters:\n");

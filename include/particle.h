@@ -7,8 +7,6 @@
 
 namespace model {
 
-class Node;
-
 // Class representing a particle in the simulation.
 class Particle {
  public:

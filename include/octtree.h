@@ -11,7 +11,7 @@
 namespace model {
 
 constexpr int num_subnodes = (1 << numerical_types::num_dimensions);
-constexpr int max_num_particles = 4;
+constexpr int max_num_particles = 16;
 
 class Tree {
  public:
@@ -19,7 +19,7 @@ class Tree {
   void rebuild(std::vector<Particle>& particles);
   // Attempts to update the tree without reallocating. Returns
   // true on success, and false if the tree required rebuilding.
-  bool update(std::vector<Particle>& particles);
+  bool relocate(std::vector<Particle>& particles);
 
   // Partially updates the nodes of the tree without relocating
   // the particles.
@@ -50,6 +50,8 @@ class Tree {
 
   // Returns the total number of nodes allocated in the tree.
   int numNodes() const;
+
+  std::pair<int, int> countLeafNodes() const;
 
  protected:
   class Node {
