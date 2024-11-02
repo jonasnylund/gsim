@@ -1,3 +1,5 @@
+load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+
 cc_library(
 	name = "model",
 	hdrs = ["model.h"],
@@ -14,4 +16,12 @@ cc_library(
 		"-O3",
 	],
 	visibility = ["//gsim:__pkg__"],
+)
+
+pybind_extension(
+	name = "py_model",
+	srcs = ["py_model.cc"],
+	deps = [
+		":model",
+	]
 )
