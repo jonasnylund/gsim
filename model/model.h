@@ -5,12 +5,12 @@
 #include <memory>
 #include <vector>
 
-#include "numerical_types.h"
-#include "octtree.h"
-#include "particle.h"
-#include "timers.h"
+#include "gsim/common/numerical_types.h"
+#include "gsim/common/timers.h"
+#include "gsim/octtree/octtree.h"
+#include "gsim/octtree/particle.h"
 
-namespace model {
+namespace gsim {
 
 class Model {
  public:
@@ -29,7 +29,7 @@ class Model {
 
   void setTheta(numerical_types::real theta);
 
-  void setSubstepUpdateRatio(float ratio);
+  void setSubstepMaxFrequency(int frequency);
 
   // Return the current time of the simulation.
   numerical_types::real getTime() const;
@@ -50,7 +50,9 @@ class Model {
   void updateTree();
   // Calculate the accelleration on each particle.
   void updateParticles();
-  
+
+  int getPreferredSubstepping(numerical_types::real accelleration_magnitude) const;
+
   std::vector<Particle> particles;
   Tree tree;
 
@@ -58,16 +60,18 @@ class Model {
   numerical_types::real dtime = 0.1;
   numerical_types::real theta = 0.5;
   numerical_types::real epsilon = 1e-3;
-  float substep_update_ratio = 0.0;
-  unsigned int num_iterations = 0;
+  numerical_types::real substep_max_accelleration = 1.0;
+
+  unsigned long num_iterations = 0;
   unsigned long num_interactions = 0;
 
   unsigned int num_rebuilds = 0;
 
-  unsigned int substep_frequency = 1;
-  unsigned int substep_counter = 0;
+  int substep_frequency = 1;
+  int substep_counter = 0;
+  int max_substep_frequency = 1;
 
   numerical_types::real total_mass = 0.0;
 };
 
-}  // namespace model
+}  // namespace gsim

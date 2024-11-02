@@ -1,4 +1,4 @@
-#include "model.h"
+#include "gsim/model/model.h"
 
 #include <cassert>
 #include <cmath>
@@ -12,12 +12,12 @@
 
 #include <omp.h>
 
-#include "numerical_types.h"
-#include "octtree.h"
-#include "particle.h"
-#include "timers.h"
+#include "gsim/common/numerical_types.h"
+#include "gsim/common/timers.h"
+#include "gsim/octtree/octtree.h"
+#include "gsim/octtree/particle.h"
 
-namespace model {
+namespace gsim {
 namespace {
 
 float random() {
@@ -46,6 +46,14 @@ Particle randomParticle(numerical_types::real pseudo_mass) {
   return particle;
 }
 
+numerical_types::real magnitude(const numerical_types::ndarray& vector) {
+  numerical_types::real m = 0.0;
+  for (int i = 0; i < numerical_types::num_dimensions; i++) {
+    m += vector[i] * vector[i];
+  }
+  return m;
+} 
+
 }  // namespace
 
 void Model::randomParticles(int num_particles) {
@@ -70,8 +78,6 @@ void Model::initialize() {
   omp_set_num_threads(omp_get_num_procs() / 2);
 
   this->rebuildTree();
-  this->substep_counter = 0;
-  this->substep_frequency = 1;
 
   // Initialize the particles current accelleration.
   for (Particle& particle : this->particles) {
@@ -79,7 +85,6 @@ void Model::initialize() {
       num_interactions += this->tree.computeAccelleration(
           particle, this->theta, this->epsilon, accelleration);
       particle.setAccelleration(accelleration, this->dtime);
-      particle.update_frequency = 1;
   }
 }
 
@@ -105,18 +110,18 @@ void Model::updateTree() {
   assert(this->substep_counter < this->substep_frequency);
   assert(this->substep_frequency > 0);
   Timer::byName("Tree: total")->set();
-  // Reduce the accuracy of the tree slightly by
-  // only updating the most deepest nodes to save
-  // computations.
-  float update_fraction = 1.0f;
-
-  for (int i = 2; i <= this->substep_frequency; i *= 2) {
-    if (this->substep_counter % i != 0)
-      update_fraction /= (1.0f + this->substep_update_ratio);
-  }
-
-  this->tree.update(update_fraction);
+  this->tree.update();
   Timer::byName("Tree: total")->reset();
+}
+
+int Model::getPreferredSubstepping(numerical_types::real accelleration_magnitude) const {
+  assert(accelleration_magnitude >= 0.0);
+  assert(this->substep_max_accelleration > 0.0);
+  if (this->substep_max_accelleration <= accelleration_magnitude)
+    return this->max_substep_frequency;
+
+  const float ratio = accelleration_magnitude / this->substep_max_accelleration;
+  return 1 << static_cast<int>(ratio * ratio * this->max_substep_frequency);
 }
 
 void Model::updateParticles() {
@@ -127,7 +132,7 @@ void Model::updateParticles() {
   Timer::byName("Particles: total")->set();
 
   unsigned int num_interactions = 0;
-  unsigned int max_frequency = 1;
+  int max_frequency = 1;
 
   // Update frequencies can only be lowered on even substeps to not loose steps.
   const bool substep_is_even = this->substep_counter % 2 == 0;
@@ -146,16 +151,18 @@ void Model::updateParticles() {
     accelleration.fill(0.0);
     num_interactions += this->tree.computeAccelleration(
         particle, this->theta, this->epsilon, accelleration);
+    const numerical_types::real accelleration_magnitude = magnitude(accelleration);
 
-    // Set the new accelleration and get the preferred new update frequency.
-    unsigned int frequency = particle.setAccelleration(accelleration, this->dtime);
+    int frequency = this->getPreferredSubstepping(accelleration_magnitude);
+    if (frequency > this->max_substep_frequency)
+      frequency = this->max_substep_frequency;
 
     // Check if the update frequency should and/or can be changed.
     if (particle.update_frequency < frequency) {
       particle.update_frequency = frequency;
     }
     else if (particle.update_frequency > frequency && substep_is_even) {
-      particle.update_frequency >>= 1;
+      particle.update_frequency /= 2;
     }
     // Since we only lower the substep_frequency by half on even substeps,
     // all particles that is not updated have a frequency that is lower or equal
@@ -164,8 +171,12 @@ void Model::updateParticles() {
     if (max_frequency < particle.update_frequency) {
       max_frequency = particle.update_frequency;
     }
+
+    particle.setAccelleration(accelleration, this->dtime / particle.update_frequency);
   }
   Timer::byName("Particles: accelleration")->reset();
+
+  const numerical_types::real previous_dt = this->dtime / this->substep_frequency;
 
   // If the highest update frequency changed, we update the counter to reflect.
   if (this->substep_frequency < max_frequency) {
@@ -174,30 +185,31 @@ void Model::updateParticles() {
     this->substep_frequency = max_frequency;
   }
   else if (this->substep_frequency > max_frequency && substep_is_even) {
-    this->substep_frequency >>= 1;
-    this->substep_counter >>= 1;
+    this->substep_frequency /= 2;
+    this->substep_counter /= 2;
   }
 
-  const numerical_types::real dtime = this->dtime / this->substep_frequency;
+  const numerical_types::real next_dt = this->dtime / this->substep_frequency;
+  numerical_types::real highest_accelleration = 0.0;
 
   Timer::byName("Particles: position")->set();
   // Step the particle position and velocity.
-  #pragma omp parallel for schedule(static)
+  #pragma omp parallel for schedule(static) \
+          reduction(max: highest_accelleration)
   for (Particle& particle : this->particles) {
-    const int update_period = this->substep_frequency / particle.update_frequency;
-    const int update_counter = this->substep_counter % update_period;
+    particle.update(previous_dt, next_dt);
 
-    const numerical_types::real substep_length = (
-      1.0 / static_cast<numerical_types::real>(update_period));
-    // substep_progress is this particles amount of progress made towards its next
-    // accelleration computation, the the substep_length is the progress to be made
-    // this iteration.
-    const numerical_types::real substep_progress = update_counter * substep_length;
-
-    particle.update(dtime, substep_progress, substep_length);
+    const numerical_types::real accelleration_magnitude = magnitude(
+      particle.current_accelleration);
+    if (accelleration_magnitude > highest_accelleration) {
+      highest_accelleration = accelleration_magnitude;
+    }
   }
   Timer::byName("Particles: position")->reset();
 
+  if (highest_accelleration > this->substep_max_accelleration) {
+    this->substep_max_accelleration = highest_accelleration;
+  }
   this->num_interactions += num_interactions;
   Timer::byName("Particles: total")->reset();
 }
@@ -205,16 +217,11 @@ void Model::updateParticles() {
 void Model::step(numerical_types::real time) {
   Timer::byName("Timestepping")->set();
   
-  while (
-    std::abs(time - this->time) > std::abs(this->dtime / 2.0)
-    ) {
-    const int num_particles = this->particles.size();
+  while (std::abs(time - this->time) > std::abs(this->dtime / 2.0)) {
     this->substep_counter = 0;
+    this->substep_max_accelleration *= static_cast<numerical_types::real>(0.95);
 
     while (this->substep_counter < this->substep_frequency) {
-      // Only update the tree without calculating new particle
-      // positions. But don't update the tree twice on the first
-      // iteration when we just rebuilt the tree fully.
       this->rebuildTree();
       this->updateTree();
 
@@ -244,9 +251,10 @@ void Model::setTheta(numerical_types::real theta) {
   this->theta = theta;
 }
 
-void Model::setSubstepUpdateRatio(float ratio) {
-  assert(ratio >= 0.0);
-  this->substep_update_ratio = ratio;
+void Model::setSubstepMaxFrequency(int frequency) {
+  assert(frequency > 0);
+  assert(frequency ==  1U << static_cast<int>(std::log2(frequency)));
+  this->max_substep_frequency = frequency;
 }
 
 numerical_types::real Model::getTime() const {
@@ -300,11 +308,11 @@ void Model::printStats() const {
   printf("Delta T:  %.3f\n", this->dtime);
   printf("Theta:    %.3f\n", this->theta);
   printf("Epsilon:  %.3f\n", this->epsilon);
-  printf("Phi:      %.3f\n", this->substep_update_ratio);
+  printf("Substeps: %u\n", this->max_substep_frequency);
 
 
   printf("\n--- Stats for run: ---\n");
-  printf("Number of iterations:   %u\n", this->num_iterations);
+  printf("Number of iterations:   %lu\n", this->num_iterations);
   printf("Number of interactions: %lu\n", this->num_interactions);
   printf("Interactions/iteration: %lu\n", this->num_interactions / this->num_iterations);
   printf("Number of particles:    %lu\n", this->particles.size());
@@ -313,4 +321,4 @@ void Model::printStats() const {
     100.0f * static_cast<float>(this->num_rebuilds) / static_cast<float>(this->num_iterations));
 }
 
-}  // namespace model
+}  // namespace gsim

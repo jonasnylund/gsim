@@ -1,4 +1,4 @@
-#include "octtree.h"
+#include "gsim/octtree/octtree.h"
 
 #include <cassert>
 #include <cstdio>
@@ -12,11 +12,12 @@
 
 #include <omp.h>
 
-#include "particle.h"
-#include "timers.h"
+#include "gsim/common/numerical_types.h"
+#include "gsim/common/timers.h"
+#include "gsim/octtree/particle.h"
 
 
-namespace model {
+namespace gsim {
 
 Tree::Node::Node(
     Tree* tree,
@@ -27,24 +28,13 @@ Tree::Node::Node(
     : id(id),
       parent_id(parent != nullptr ? parent->id : numerical_types::emptykey),
       tree(tree),
-      depth(id.depth),
       center(center),
-      width(width) {
+      width(width),
+      depth(id.depth) {
   this->center_of_mass.fill(0.0);
   this->total_mass = 0.0;
   this->particles.fill({});
   this->children.fill(numerical_types::emptykey);
-}
-
-Tree::Node* Tree::Node::getSubnode(bool indices[numerical_types::num_dimensions]) {
-  int linear_index = Tree::Node::SubnodeIndex(indices);
-
-  // If the node does not yet exist, create it.
-  if (!this->hasChildren()) {
-    this->allocateChildren();
-  }
-
-  return this->child(linear_index);
 }
 
 void Tree::Node::addMass(numerical_types::real mass, const numerical_types::ndarray& position) {
@@ -61,20 +51,19 @@ void Tree::Node::add(Particle* particle) {
 
   // If this one of the first particle added, we are currently a leaf node.
   if (this->num_particles_contained <= this->particles.size()) {
-    for (int i = 0; i < max_num_particles; i++) {
-      if (this->particle(i) == nullptr) {
-        this->particle(i) = particle;
-        this->num_particles_local++;
-        particle->containing_node = this->id;
-        return;
-      }
-    }
-    assert(false);
+    this->particle(this->num_particles_local++) = particle;
+    particle->containing_node = this->id;
+    return;
+  }
+
+  // If we don't have child nodes yet, create them.
+  if (!this->hasChildren()) {
+    this->allocateChildren();
   }
 
   // If we have local particles, but no more of them will fit, we must
   // first move them to the correct node.
-  bool indices[numerical_types::num_dimensions];
+  int indices[numerical_types::num_dimensions];
   if (this->num_particles_local > 0) {
     assert(this->num_particles_local == max_num_particles);
     for (int i = 0; i < max_num_particles; i++) {
@@ -92,15 +81,17 @@ void Tree::Node::add(Particle* particle) {
 
 void Tree::add(Particle* particle, Tree::Node* node) {
   // Walks the tree until a leaf node is found and adds the particle to it.
-  assert(node != nullptr);
+  // assert(node != nullptr);
 
-  bool indices[numerical_types::num_dimensions];
-  while (node->num_particles_contained > max_num_particles) {
+  int indices[numerical_types::num_dimensions];
+  // while (node->num_particles_contained > max_num_particles) {
+  while (node->hasChildren()) {
     node->num_particles_contained++;
 
     node->indexOf(particle->position, indices);
     node = node->getSubnode(indices);
   }
+
   node->add(particle);
 }
 
@@ -162,10 +153,7 @@ void Tree::Node::gatherChildParticles() {
       if (this->child(i)->num_particles_local == 0) {
         this->child(i)->gatherChildParticles();
       }
-      for (int j = 0; j < max_num_particles; j++) {
-        if (this->child(i)->particle(j) == nullptr){
-          continue;
-        }
+      for (int j = 0; j < this->child(i)->num_particles_local; j++) {
         this->add(this->child(i)->particle(j));
       }
       this->child(i)->particles.fill({});
@@ -179,7 +167,7 @@ void Tree::Node::gatherChildParticles() {
 void Tree::Node::allocateChildren() {
   assert(!this->hasChildren());
   const numerical_types::real half_width = this->width / 2.0;
-  bool indices[numerical_types::num_dimensions];
+  int indices[numerical_types::num_dimensions];
 
   for (int i = 0; i < num_subnodes; i++) {
     numerical_types::ndarray center;
@@ -192,31 +180,6 @@ void Tree::Node::allocateChildren() {
 
     const numerical_types::NodeKey key = this->tree->allocateNode(this, center, half_width);
     this->children[i] = key;
-  }
-}
-
-void Tree::Node::aggregateQuantities() {
-  this->dirty = false;
-  this->total_mass = 0.0;
-
-  if (this->hasParticles()) {
-    for (int i = 0; i < max_num_particles; i++) {
-      if (this->particle(i) != nullptr) {
-        this->particles[i].mass = this->particle(i)->mass;
-        this->particles[i].position = this->particle(i)->position;
-        this->addMass(this->particles[i].mass,
-                      this->particles[i].position);
-      }
-    }
-  }
-  else if (this->hasChildren()) {
-    for (int i = 0; i < num_subnodes; i++) {
-      if (this->child(i)->num_particles_contained > 0){
-        this->child(i)->aggregateQuantities();
-        this->addMass(this->child(i)->total_mass,
-                      this->child(i)->center_of_mass);
-      }
-    }
   }
 }
 
@@ -248,7 +211,6 @@ int Tree::Node::computeAccelleration(
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const {
   int num_calculations = 0;
-
   // Calculate the distance between the the object and the cell.
   numerical_types::real distance_sq = 0;
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
@@ -260,24 +222,22 @@ int Tree::Node::computeAccelleration(
   // the distance between the given particle and the node's center, subtract
   // the hypothenuse from the node center to its corners. In N dimensions,
   // this is sqrt(N * width ^ 2).
-  // We keep all values squared though to avoid computing the sqrt.
-  const numerical_types::real width_sq = this->width * this->width;
-  distance_sq -= numerical_types::num_dimensions * width_sq;
+  constexpr numerical_types::real root = std::sqrt(numerical_types::num_dimensions);
+  const numerical_types::real distance_to_edge = std::sqrt(distance_sq) - root * this->width;
 
-  if (particle.containing_node != this->id && theta * distance_sq > width_sq) {
+  if (theta * distance_to_edge > this->width) {
     // If the particle is sufficiently far away, approximate the accelleration
     // from the cells mass and center of mass.
     this->computeAccelleration(
       this->total_mass, this->center_of_mass, particle, theta, epsilon, result
-      );
+    );
     num_calculations++;
   }
   else if (this->hasParticles()) {
     // If this node is a leaf node, compute the accelleration against each
     // particle individually.
-    for (int i = 0; i < max_num_particles; i++) {
-      if (this->particles[i].particle == nullptr ||
-          this->particles[i].particle == &particle) {
+    for (int i = 0; i < this->num_particles_local; i++) {
+      if (this->particles[i].particle == &particle) {
         continue;
       }
       // Compute the accelleration against this particle.
@@ -294,10 +254,11 @@ int Tree::Node::computeAccelleration(
   else if (this->hasChildren()) {
     // If the node has children, iterate over each and compute the accelleration.
     for (int i = 0; i < num_subnodes; i++) {
-      if (this->child(i)->num_particles_contained > 0)
+      if (this->child(i)->num_particles_contained > 0) {
         num_calculations += this->child(i)->computeAccelleration(
           particle, theta, epsilon, result
-          );
+        );
+      }
     }
   }
   return num_calculations;
@@ -342,9 +303,7 @@ int Tree::computeAccelleration(
 // Tree
 void Tree::rebuild(std::vector<Particle>& particles) {
   // Clear the tree of nodes.
-  Timer::byName("Tree: clear")->set();
   this->clear();
-  Timer::byName("Tree: clear")->reset();
 
   // Calculate the extent of the boundingbox of all particles.
   std::array<numerical_types::ndarray, 3> stats = Particle::positionExtent(particles);
@@ -379,11 +338,9 @@ void Tree::rebuild(std::vector<Particle>& particles) {
 
 bool Tree::relocate(std::vector<Particle>& particles) {
   assert(this->rootNode() != nullptr);
-  bool rebuild_required = false;
 
-  Timer::byName("Tree: clear")->set();
-  // this->rootNode()->clear();
-  #pragma omp parallel for
+  Timer::byName("Tree: relocate")->set();
+  #pragma omp parallel for schedule(guided)
   for (auto& nodes : this->nodes) {
     for (auto& node : nodes) {
       node.num_particles_contained = 0;
@@ -392,116 +349,80 @@ bool Tree::relocate(std::vector<Particle>& particles) {
       node.total_mass = 0.0;
     }
   }
-  Timer::byName("Tree: clear")->reset();
 
   // Attempt to update the tree, rebuilding if required.
-  Timer::byName("Tree: relocate")->set();
+  bool rebuild_required = false;
+  #pragma omp parallel for reduction(|| : rebuild_required)
   for (Particle& particle: particles) {
-    if (!this->rootNode()->contains(particle.position)) {
-    // if (!this->relocate(&particle)) {
+    // Find the position of each particle in the tree in parallel,
+    // record the position with the particle.
+    if (this->rootNode()->contains(particle.position)) {
+      const numerical_types::NodeKey key = this->getContainingNode(particle.position);
+      particle.containing_node = key;
+    } else {
       rebuild_required = true;
-      break;
     }
-    this->add(&particle, this->rootNode());
   }
-  Timer::byName("Tree: relocate")->reset();
-  if (rebuild_required) {
+
+  if (!rebuild_required) {
+    // Add all particles to the respective nodes serially, avoiding
+    // races if a node needs to be split into subnodes.
+    for (Particle& particle: particles) {
+      this->getNode(particle.containing_node)->add(&particle);
+    }
+  } else {
     this->rebuild(particles);
   }
+  Timer::byName("Tree: relocate")->reset();
   return !rebuild_required;
 }
 
-void Tree::update(float fraction) {
+void Tree::update() {
   Timer::byName("Tree: aggregate")->set();
-  assert(fraction > 0.0f);
-  assert(fraction <= 1.0f);
-
-  // Save computations by not updating the outermost nodes each
-  // iteration when only small updates has been made in the simulation.
   const int deepest_index = this->height() - 1;
-  const int depth_limit = (1.0f - fraction) * deepest_index;
 
   // Compute node quantities in parallel at each depth. Begin with
   // the leaf nodes and iterate over each depth in the tree in reverse.
-  for (int depth = deepest_index; depth >= depth_limit; depth--) {
+  for (int depth = deepest_index; depth >= 0; depth--) {
     const int num_iterations = this->nodes[depth].size();
     #pragma omp parallel for \
-            schedule(static) \
             if (num_iterations > 32)
     for (int i = 0; i < num_iterations; i++) {
       Node& node = this->nodes[depth][i];
-      if (node.num_particles_contained == 0) {
-        continue;
-      }
-
-      // Move particles up the tree if they can be.
-      if (node.num_particles_contained <= max_num_particles &&
-          node.num_particles_local < node.num_particles_contained) {
-        node.gatherChildParticles();
-      }
-
-      // Compute center of mass.
       node.total_mass = 0.0;
-      if (node.hasParticles()) {
-        for (int j = 0; j < max_num_particles; j++) {
-          if (node.particle(j) != nullptr) {
-            node.particles[j].mass = node.particle(j)->mass;
-            node.particles[j].position = node.particle(j)->position;
-            node.addMass(node.particles[j].mass,
-                         node.particles[j].position);
-          }
-        }
-      }
-      else if (node.hasChildren()) {
+      node.num_particles_contained = 0;
+
+      if (node.hasChildren()) {
         for (int j = 0; j < num_subnodes; j++) {
           if (node.child(j)->num_particles_contained > 0) {
+            node.num_particles_contained += node.child(j)->num_particles_contained;
             node.addMass(node.child(j)->total_mass,
                          node.child(j)->center_of_mass);
           }
         }
+        // Move particles up the tree if they can be.
+        if (node.num_particles_contained > 0 &&
+            node.num_particles_contained <= max_num_particles) {
+          node.gatherChildParticles();
+        }
+      }
+      // (Re)Compute center of mass.
+      if (node.hasParticles()) {
+        node.total_mass = 0.0;
+        for (int j = 0; j < node.num_particles_local; j++) {
+          // if (node.particle(j) != nullptr) {
+            node.particles[j].mass = node.particle(j)->mass;
+            node.particles[j].position = node.particle(j)->position;
+            node.addMass(node.particles[j].mass,
+                         node.particles[j].position);
+          // }
+        }
+        node.num_particles_contained = node.num_particles_local;
       }
     }
   }
 
   Timer::byName("Tree: aggregate")->reset();
-}
-
-bool Tree::relocate(Particle* particle) {
-  // assert(particle->containing_node != numerical_types::emptykey);
-  Tree::Node* node = Tree::getNode(particle->containing_node);
-
-  Tree::Node* next_leaf_node = nullptr;
-  // Move the particle up in the tree if the current node does not
-  // contain the particle position.
-  while (!node->contains(particle->position)) {
-    node = node->parent();
-    if (node == nullptr)
-      // If the root node did not contain the particle, we cannot add it.
-      return false;
-    node->num_particles_contained--;
-
-    if (node->num_particles_contained < max_num_particles) {
-      // Mark the current node as the new leaf for all its contained
-      // particles.
-      next_leaf_node = node;
-    }
-  }
-  // Don't add the particle again if the node does not
-  // change from any of the above.
-  if (node->id == particle->containing_node) {
-    return true;
-  }
-  // Remove the particle from its previous node.
-  Tree::getNode(particle->containing_node)->remove(particle);
-
-  // If we can move particles up the tree to a new leaf node,
-  // do it.
-  if (next_leaf_node != nullptr) {
-    next_leaf_node->gatherChildParticles();
-  }
-  this->add(particle, node);
-
-  return true;
 }
 
 numerical_types::NodeKey Tree::allocateNode(
@@ -532,7 +453,7 @@ numerical_types::NodeKey Tree::allocateNode(
 
 void Tree::prune() {
   Timer::byName("Tree: pruning")->set();
-  
+
   // Start pruning at the outermost leaf nodes.
   // Don't prune all the way to the root node.
   for (int depth = this->height() - 1; depth > 0; depth--) {
@@ -576,6 +497,18 @@ void Tree::prune() {
   }
 
   Timer::byName("Tree: pruning")->reset();
+}
+
+numerical_types::NodeKey Tree::getContainingNode(
+  numerical_types::ndarray position) const {
+  const Tree::Node* node = this->rootNode();
+
+  int indices[numerical_types::num_dimensions];
+  while (node->hasChildren()) {
+    node->indexOf(position, indices);
+    node = node->getSubnode(indices);
+  }
+  return node->id;
 }
 
 int Tree::numNodes() const {
@@ -628,4 +561,4 @@ void Tree::write(std::ofstream& file) const {
   }
 }
 
-}  // namespace model
+}  // namespace gsim

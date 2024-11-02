@@ -5,22 +5,18 @@
 #include <map>
 #include <optional>
 #include <string>
-#include <typeinfo> 
 
-#include <omp.h>
-
-#include "numerical_types.h"
-#include "model.h"
-#include "timers.h"
+#include "gsim/common/timers.h"
+#include "gsim/model/model.h"
 
 
 int main(int argc, char *argv[]) {
   int num_particles = 300;
   int num_iterations = 300;
-  numerical_types::real theta = 0.4;
-  numerical_types::real epsilon = 0.1;
-  numerical_types::real dt = 0.01;
-  float substep_ratio = 0.0;
+  float theta = 0.4;
+  float epsilon = 0.1;
+  float dt = 0.01;
+  unsigned int substep_frequency = 4;
   bool verbose = true;
 
   std::string particles_path("particles.bin");
@@ -49,8 +45,8 @@ int main(int argc, char *argv[]) {
     else if (strncmp(argv[i], "--dtime", 7) == 0) {
       dt = atof(argv[++i]);
     }
-    else if (strncmp(argv[i], "--updateratio", 14) == 0) {
-      substep_ratio = atof(argv[++i]);
+    else if (strncmp(argv[i], "--substeps", 14) == 0) {
+      substep_frequency = atoi(argv[++i]);
     }
     else if (strncmp(argv[i], "-q", 2) == 0 || strncmp(argv[i], "--quiet", 8) == 0) {
       verbose = false;
@@ -68,24 +64,24 @@ int main(int argc, char *argv[]) {
   std::ofstream particles_file(particles_path);
   std::ofstream tree_file(tree_path);
 
-  model::Model model;
+  gsim::Model model;
 
-  model::Timer::byName("Setup")->set();
+  gsim::Timer::byName("Setup")->set();
 
   model.setEpsilon(epsilon);
   model.setTheta(theta);
   model.setTimeStep(dt);
-  model.setSubstepUpdateRatio(substep_ratio);
+  model.setSubstepMaxFrequency(substep_frequency);
 
   model.randomParticles(num_particles);
   model.initialize();
   model.writeParticles(particles_file);
   model.writeTree(tree_file);
 
-  model::Timer::byName("Setup")->reset();
+  gsim::Timer::byName("Setup")->reset();
 
   for (int i = 1; i <= num_iterations; i++) {
-    model.step(static_cast<numerical_types::real>(i));
+    model.step(i);
 
     model.writeParticles(particles_file);
     model.writeTree(tree_file);
@@ -98,7 +94,7 @@ int main(int argc, char *argv[]) {
 
   printf("T: %.1f s\n", model.getTime());
 
-  model::Timer::byName("Teardown")->set();
+  gsim::Timer::byName("Teardown")->set();
 
   particles_file.close();
   tree_file.close();
@@ -106,11 +102,11 @@ int main(int argc, char *argv[]) {
     printf("Writing output to %s\n", particles_path.c_str());
   }
 
-  model::Timer::byName("Teardown")->reset();
+  gsim::Timer::byName("Teardown")->reset();
 
   model.printStats();
   printf("\n");
-  model::Timer::write();
+  gsim::Timer::write();
 
   return 0;
 }

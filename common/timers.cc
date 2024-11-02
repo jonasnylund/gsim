@@ -1,6 +1,6 @@
-#include "timers.h"
+#include "gsim/common/timers.h"
 
-namespace model {
+namespace gsim {
 
 std::map<std::string, Timer> Timer::timers;
 int Timer::longest_key = 0;
@@ -17,4 +17,4 @@ void Timer::write() {
     it++;
   }
 }
-}  // namespace model
+}  // namespace gsim

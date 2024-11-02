@@ -8,7 +8,7 @@
 #include <string>
 #include <omp.h>
 
-namespace model {
+namespace gsim {
 
 class Timer {
  public:
@@ -35,4 +35,4 @@ class Timer {
   double total_time = 0.0f;
 };
 
-}  // namespace model
+}  // namespace gsim
