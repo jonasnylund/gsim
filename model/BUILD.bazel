@@ -1,0 +1,17 @@
+cc_library(
+	name = "model",
+	hdrs = ["model.h"],
+	srcs = ["model.cc"],
+	deps = [
+		"//gsim/common:numerical_types",
+		"//gsim/common:timers",
+		"//gsim/octtree",
+		"//gsim/octtree:particle",
+	],
+	copts = [
+		"-fopenmp",
+		"-std=c++17",
+		"-O3",
+	],
+	visibility = ["//gsim:__pkg__"],
+)

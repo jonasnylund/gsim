@@ -1,0 +1,17 @@
+
+cc_binary(
+	name = "gsim",
+	srcs = ["main.cc"],
+	deps = [
+		"//gsim/common:timers",
+		"//gsim/model",
+	],
+	copts = [
+		"-std=c++17",
+		"-O3",
+	],
+	linkopts = [
+		"-lm",
+		"-fopenmp",
+	]
+)

@@ -1,0 +1,16 @@
+cc_library(
+	name = "numerical_types",
+	hdrs = ["numerical_types.h"],
+	visibility = ["//gsim:__subpackages__"],
+)
+
+cc_library(
+	name = "timers",
+	hdrs = ["timers.h"],
+	srcs = ["timers.cc"],
+	visibility = ["//gsim:__subpackages__"],
+	copts = [
+		"-fopenmp",
+		"-std=c++17",
+	]
+)

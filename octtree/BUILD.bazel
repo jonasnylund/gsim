@@ -1,0 +1,32 @@
+
+cc_library(
+	name = "particle",
+	hdrs = ["particle.h"],
+	srcs = ["particle.cc"],
+	deps = [
+		"//gsim/common:numerical_types",
+	],
+	copts = [
+		"-std=c++17",
+		"-fopenmp",
+		"-O3",
+	],
+	visibility = ["//gsim:__subpackages__"],
+)
+
+cc_library(
+	name = "octtree",
+	hdrs = ["octtree.h"],
+	srcs = ["octtree.cc"],
+	deps = [
+		":particle",
+		"//gsim/common:numerical_types",
+		"//gsim/common:timers",
+	],
+	copts = [
+		"-std=c++17",
+		"-fopenmp",
+		"-O3",
+	],
+	visibility = ["//gsim:__subpackages__"],
+)
