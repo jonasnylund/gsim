@@ -1,6 +1,6 @@
 #!/bin/bash
 
-common_args="-p 1000 -n 300 --epsilon 0.05 -q"
+common_args="-p 500 -n 300 --epsilon 0.05 -q"
 name=$1
 args=$2
 loops=$3

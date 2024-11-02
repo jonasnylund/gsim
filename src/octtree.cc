@@ -223,7 +223,8 @@ void Tree::Node::aggregateQuantities() {
 void Tree::Node::clear() {
   if (this->hasChildren()) {
     for (int i = 0; i < num_subnodes; i++) {
-      this->child(i)->clear();
+      if (this->num_particles_contained > 0)
+        this->child(i)->clear();
     }
   }
   this->particles.fill({});
@@ -341,7 +342,9 @@ int Tree::computeAccelleration(
 // Tree
 void Tree::rebuild(std::vector<Particle>& particles) {
   // Clear the tree of nodes.
+  Timer::byName("Tree: clear")->set();
   this->clear();
+  Timer::byName("Tree: clear")->reset();
 
   // Calculate the extent of the boundingbox of all particles.
   std::array<numerical_types::ndarray, 3> stats = Particle::positionExtent(particles);
@@ -359,6 +362,7 @@ void Tree::rebuild(std::vector<Particle>& particles) {
       width = std::abs(max[i] - average[i]);
   }
   
+  Timer::byName("Tree: allocate")->set();
   width *= 1.5;	// Have some margin in the size.
   // Center the root node on the average position of all the particles.
   // This should balance the tree somewhat when a few particles are far away.
@@ -368,6 +372,7 @@ void Tree::rebuild(std::vector<Particle>& particles) {
     particle.containing_node = numerical_types::emptykey;
     this->add(&particle, this->rootNode());
   }
+  Timer::byName("Tree: allocate")->reset();
   this->update();
   this->rebuilds++;
 }
@@ -376,13 +381,28 @@ bool Tree::relocate(std::vector<Particle>& particles) {
   assert(this->rootNode() != nullptr);
   bool rebuild_required = false;
 
+  Timer::byName("Tree: clear")->set();
+  // this->rootNode()->clear();
+  #pragma omp parallel for
+  for (auto& nodes : this->nodes) {
+    for (auto& node : nodes) {
+      node.num_particles_contained = 0;
+      node.num_particles_local = 0;
+      node.particles.fill({});
+      node.total_mass = 0.0;
+    }
+  }
+  Timer::byName("Tree: clear")->reset();
+
   // Attempt to update the tree, rebuilding if required.
   Timer::byName("Tree: relocate")->set();
   for (Particle& particle: particles) {
-    if (!this->relocate(&particle)) {
+    if (!this->rootNode()->contains(particle.position)) {
+    // if (!this->relocate(&particle)) {
       rebuild_required = true;
       break;
     }
+    this->add(&particle, this->rootNode());
   }
   Timer::byName("Tree: relocate")->reset();
   if (rebuild_required) {

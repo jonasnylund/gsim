@@ -6,6 +6,7 @@ import sys
 import re
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from typing import Any, Dict, List, Tuple, Union
 
@@ -94,14 +95,36 @@ def parse_stats(path: str) -> Scenario:
 
 if __name__ == "__main__":
   path = sys.argv[1]
+  reference = sys.argv[2] if len(sys.argv) > 2 else None
   FOLDERS = list_folders(path)
 
   scenarios: Dict[str, Scenario] = dict()
   for folder in FOLDERS:
     name = os.path.basename(folder)
+    if "exact" in name:
+      continue
     scenarios[name] = parse_stats(os.path.join(folder, "stats.txt"))
 
+  plotdata = dict()
   for name, scenario in scenarios.items():
-    mean, stdev = scenario.timers("timestepping")
+    mean, stdev = scenario.timers("tree_total")
     print(name, round(mean / 1000, 1), round(stdev / 1000, 1))
+    plotdata[name] = (mean / 1000, stdev / 1000)
+  
+  if reference is not None:
+    mean_ref, std_ref = plotdata[reference]
+    for name, (mean, stdev) in plotdata.items():
+      stdev = std_ref * 1 / mean + stdev * mean_ref / (mean ** 2)
+      mean = mean_ref / mean
 
+      plotdata[name] = (mean, stdev)
+
+  plt.bar(
+    x = np.arange(len(plotdata)),
+    height=[x for x, _ in plotdata.values()],
+    tick_label=[str(key) for key in plotdata.keys()],
+    yerr=[x for _, x in plotdata.values()],
+    capsize=5,
+    )
+
+  plt.show()

@@ -1,11 +1,11 @@
 IDIR=include
 CXX=g++
-CFLAGS=-I$(IDIR) -O3 -fopenmp --std=c++17 -g
+CFLAGS=-I$(IDIR) -O0 -fopenmp --std=c++17 -pg
 
 OBJDIR=obj
 SRCDIR=src
 LDIR=lib
-LDFLAGS=-lm -fopenmp -g
+LDFLAGS=-lm -fopenmp -pg
 
 DEPS = $(wildcard $(IDIR)/*.h)
 

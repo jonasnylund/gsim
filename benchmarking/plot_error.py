@@ -39,8 +39,6 @@ def get_rmserror(base: str, path: str) -> np.ndarray:
   exact = read_file(os.path.join(base, 'exact/particles.bin'))
   measurement = read_file(os.path.join(path, 'particles.bin'))
 
-  print(len(exact), len(measurement))
-
   output = []
   for (t0, reference), (t1, measured) in zip(exact, measurement):
     rmse = np.sqrt(np.mean((reference - measured) ** 2))
@@ -51,14 +49,14 @@ def get_rmserror(base: str, path: str) -> np.ndarray:
 if __name__ == '__main__':
   print(sys.argv)
   base_path = sys.argv[1]
-  # baseline = get_rmserror(base_path, os.path.join(base_path, 'baseline'))
+  baseline = get_rmserror(base_path, sys.argv[2])
 
   fig, ax = plt.subplots(figsize=(10, 3))
-  for arg in sys.argv[2:]:
+  for arg in sys.argv[3:]:
     data = get_rmserror(base_path, arg)
     ax.plot(
       data[:, 0],
-      data[:, 1],  #- baseline[:, 1],
+      data[:, 1] - baseline[:, 1],
       label=os.path.basename(arg).capitalize(),
       )
   ax.legend()

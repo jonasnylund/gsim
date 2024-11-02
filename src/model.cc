@@ -210,14 +210,11 @@ void Model::step(numerical_types::real time) {
     ) {
     const int num_particles = this->particles.size();
     this->substep_counter = 0;
-    // this->rebuildTree();
 
     while (this->substep_counter < this->substep_frequency) {
       // Only update the tree without calculating new particle
       // positions. But don't update the tree twice on the first
       // iteration when we just rebuilt the tree fully.
-      // if (this->substep_counter > 0)
-      //   this->updateTree();
       this->rebuildTree();
       this->updateTree();
 
