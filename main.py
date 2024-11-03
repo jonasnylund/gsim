@@ -15,8 +15,6 @@ def main(args: argparse.Namespace) -> None:
   )
 
   model.random_particles(args.num_particles)
-  model.add_particle(args.num_particles, [10, 10, 10], [-1, -1, 0])
-
   model.initialize()
   start_time = time.time()
 
@@ -31,9 +29,6 @@ def main(args: argparse.Namespace) -> None:
     model.step(dt)
     if args.output is not None:
       model.write_particles(os.path.expanduser(output_path))
-  
-  for p in model.get_particles():
-    print(p.mass, p.position, p.velocity)
 
   print(f'{model.get_time():.1f}')
   model.print_stats()
