@@ -31,6 +31,9 @@ def main(args: argparse.Namespace) -> None:
     model.step(dt)
     if args.output is not None:
       model.write_particles(os.path.expanduser(output_path))
+  
+  for p in model.get_particles():
+    print(p.mass, p.position, p.velocity)
 
   print(f'{model.get_time():.1f}')
   model.print_stats()
@@ -50,7 +53,7 @@ if __name__ == '__main__':
   parser.add_argument(
     '-n',
     '--timesteps',
-    type=float,
+    type=int,
     default=300,
     help='Number of timesteps to simulate',
     metavar='NUMBER',
