@@ -335,8 +335,9 @@ void Model::printStats() const {
   printf("Interactions/iteration: %lu\n", this->num_interactions / this->num_iterations);
   printf("Number of particles:    %lu\n", this->particles.size());
   printf("Number of rebuilds:     %u\n", this->num_rebuilds);
-  printf("Fraction of rebuilds:   %.1f%%\n",
+  printf("Fraction of rebuilds:   %.1f%%\n\n",
     100.0f * static_cast<float>(this->num_rebuilds) / static_cast<float>(this->num_iterations));
+  gsim::Timer::write();
 }
 
 }  // namespace gsim

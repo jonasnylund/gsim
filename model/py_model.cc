@@ -1,6 +1,5 @@
 #include <pybind11/pybind11.h>
 
-#include "gsim/common/numerical_types.h"
 #include "gsim/model/model.h"
 
 PYBIND11_MODULE(py_model, m) {

@@ -92,8 +92,6 @@ int main(int argc, char *argv[]) {
   }
 
   model.printStats();
-  printf("\n");
-  gsim::Timer::write();
 
   return 0;
 }
