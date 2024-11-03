@@ -15,13 +15,13 @@ cc_library(
 		"-std=c++17",
 		"-O3",
 	],
+	linkopts = ["-fopenmp"],
 	visibility = ["//gsim:__pkg__"],
 )
 
 pybind_extension(
 	name = "py_model",
 	srcs = ["py_model.cc"],
-	deps = [
-		":model",
-	]
+	deps = [":model"],
+	visibility = ["//gsim:__pkg__"],
 )

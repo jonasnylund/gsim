@@ -56,6 +56,17 @@ numerical_types::real magnitude(const numerical_types::ndarray& vector) {
 
 }  // namespace
 
+void Model::addParticle(
+    numerical_types::real mass,
+    numerical_types::ndarray position,
+    numerical_types::ndarray velocity) {
+  Particle particle;
+  particle.mass = mass;
+  particle.position = position;
+  particle.velocity = velocity;
+  this->particles.push_back(particle);
+}
+
 void Model::randomParticles(int num_particles) {
   assert(num_particles > 0);
   std::srand(12345);
@@ -65,11 +76,9 @@ void Model::randomParticles(int num_particles) {
   Particle big;
   big.mass = 10.0 + static_cast<numerical_types::real>(num_particles) / 10.0;
 
-  this->total_mass = big.mass;
   this->particles[0] = big;
   for (int i = 1; i < num_particles; i++) {
     this->particles[i] = randomParticle(big.mass);
-    this->total_mass += this->particles[i].mass;
   }
 }
 
@@ -217,7 +226,8 @@ void Model::updateParticles() {
 void Model::step(numerical_types::real time) {
   Timer::byName("Timestepping")->set();
   
-  while (std::abs(time - this->time) > std::abs(this->dtime / 2.0)) {
+  numerical_types::real t = 0.0;
+  while (t < time) {
     this->substep_counter = 0;
     this->substep_max_accelleration *= static_cast<numerical_types::real>(0.95);
 
@@ -231,6 +241,7 @@ void Model::step(numerical_types::real time) {
       this->substep_counter++;
     }
     this->tree.prune();
+    t += this->dtime;
     this->time += this->dtime;
   }
 
@@ -261,8 +272,10 @@ numerical_types::real Model::getTime() const {
   return this->time;
 }
 
-void Model::writeParticles(std::ofstream& file) const {
+void Model::writeParticles(const std::string& path) const {
   Timer::byName("IO")->set();
+  std::ofstream file(path, std::ios_base::app);
+
   const size_t real_bytes = sizeof(numerical_types::real);
   const size_t n_particles = this->particles.size();
   const size_t bytes_to_write = real_bytes + n_particles * (
@@ -277,11 +290,15 @@ void Model::writeParticles(std::ofstream& file) const {
     file.write(reinterpret_cast<const char*>(particle.position.data()),
                numerical_types::ndarray_bytes_size);
   }
+
+  file.close();
   Timer::byName("IO")->reset();
 }
 
-void Model::writeTree(std::ofstream& file) const {
+void Model::writeTree(const std::string& path) const {
   Timer::byName("IO")->set();
+  std::ofstream file(path, std::ios_base::app);
+
   const size_t real_bytes = sizeof(numerical_types::real);
   const size_t num_nodes = this->tree.numNodes();
   const size_t bytes_to_write = real_bytes + num_nodes * (
@@ -292,6 +309,7 @@ void Model::writeTree(std::ofstream& file) const {
   file.write(reinterpret_cast<const char*>(&this->time), real_bytes);
   this->tree.write(file);
 
+  file.close();
   Timer::byName("IO")->reset();
 }
 

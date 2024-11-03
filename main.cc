@@ -61,12 +61,7 @@ int main(int argc, char *argv[]) {
     printf("Simulating %d particles for %d timesteps\n", num_particles, num_iterations);
   }
 
-  std::ofstream particles_file(particles_path);
-  std::ofstream tree_file(tree_path);
-
   gsim::Model model;
-
-  gsim::Timer::byName("Setup")->set();
 
   model.setEpsilon(epsilon);
   model.setTheta(theta);
@@ -75,16 +70,14 @@ int main(int argc, char *argv[]) {
 
   model.randomParticles(num_particles);
   model.initialize();
-  model.writeParticles(particles_file);
-  model.writeTree(tree_file);
-
-  gsim::Timer::byName("Setup")->reset();
+  model.writeParticles(particles_path);
+  model.writeTree(tree_path);
 
   for (int i = 1; i <= num_iterations; i++) {
-    model.step(i);
+    model.step(static_cast<numerical_types::real>(i) - model.getTime());
 
-    model.writeParticles(particles_file);
-    model.writeTree(tree_file);
+    model.writeParticles(particles_path);
+    model.writeTree(tree_path);
 
     if (verbose) {
       printf("T: %.1f s\r", model.getTime());
@@ -92,17 +85,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  printf("T: %.1f s\n", model.getTime());
-
   gsim::Timer::byName("Teardown")->set();
 
-  particles_file.close();
-  tree_file.close();
   if (verbose) {
     printf("Writing output to %s\n", particles_path.c_str());
   }
-
-  gsim::Timer::byName("Teardown")->reset();
 
   model.printStats();
   printf("\n");

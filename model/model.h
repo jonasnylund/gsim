@@ -14,6 +14,19 @@ namespace gsim {
 
 class Model {
  public:
+  Model() {};
+
+  Model(float dtime, int substeps, float epsilon, float theta)
+    : dtime(dtime),
+      theta(theta),
+      epsilon(epsilon),
+      max_substep_frequency(substeps) {};
+
+  void addParticle(
+    numerical_types::real mass,
+    numerical_types::ndarray position,
+    numerical_types::ndarray velocity);
+
   // Initialize the model with some random data.
   void randomParticles(int num_particles);
 
@@ -35,10 +48,10 @@ class Model {
   numerical_types::real getTime() const;
 
   // Write particle states to the output stream.
-  void writeParticles(std::ofstream& file) const;
+  void writeParticles(const std::string& path) const;
 
   // Write the current tree structure to file.
-  void writeTree(std::ofstream& file) const;
+  void writeTree(const std::string& path) const;
 
   // Print timer and counter stats to stdout.
   void printStats() const;
@@ -70,8 +83,6 @@ class Model {
   int substep_frequency = 1;
   int substep_counter = 0;
   int max_substep_frequency = 1;
-
-  numerical_types::real total_mass = 0.0;
 };
 
 }  // namespace gsim
