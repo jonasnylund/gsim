@@ -10,8 +10,8 @@ def main(args: argparse.Namespace) -> None:
   model = py_model.Model(
     args.dtime,
     args.substeps,
-    0.01,
-    0.3,
+    args.epsilon,
+    args.theta,
   )
 
   model.random_particles(args.num_particles)
@@ -64,6 +64,20 @@ if __name__ == '__main__':
     default=4,
     help='Maximum number of substeps per time step.',
     metavar='INTEGER',
+  )
+  parser.add_argument(
+    '--epsilon',
+    type=float,
+    default=0.05,
+    help='Fudge factor to avoid div/0, giving infinite accelleration',
+    metavar='NUMBER',
+  )
+  parser.add_argument(
+    '--theta',
+    type=float,
+    default=0.3,
+    help='Cell width/distance ratio threshold for when to expand the tree during force computations',
+    metavar='NUMBER',
   )
   parser.add_argument(
     '-o',

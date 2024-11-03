@@ -1,24 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_binary")
 
-cc_binary(
-	name = "gsim",
-	srcs = ["main.cc"],
-	deps = [
-		"//gsim/common:timers",
-		"//gsim/model",
-	],
-	copts = [
-		"-std=c++17",
-		"-O3",
-	],
-	linkopts = [
-		"-lm",
-		"-fopenmp",
-	]
-)
-
 py_binary(
-	name = "py_main",
+	name = "gsim",
 	srcs = ["main.py"],
 	main = "main.py",
 	data = [
