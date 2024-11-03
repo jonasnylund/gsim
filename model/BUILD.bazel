@@ -22,6 +22,9 @@ cc_library(
 pybind_extension(
 	name = "py_model",
 	srcs = ["py_model.cc"],
-	deps = [":model"],
+	deps = [
+		":model",
+		"//gsim/octtree:particle",
+	],
 	visibility = ["//gsim:__pkg__"],
 )

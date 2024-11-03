@@ -15,18 +15,22 @@ def main(args: argparse.Namespace) -> None:
   )
 
   model.random_particles(args.num_particles)
+  model.add_particle(args.num_particles, [10, 10, 10], [-1, -1, 0])
+
   model.initialize()
   start_time = time.time()
 
   if args.output is not None:
-    os.remove(args.output)
+    output_path = os.path.expanduser(args.output)
+    if os.path.exists(output_path):
+      os.remove(output_path)
 
   for i in range(args.timesteps):
     print(f'{model.get_time():.1f}', end='\r')
     dt = i + 1 - model.get_time()
     model.step(dt)
     if args.output is not None:
-      model.write_particles(os.path.expanduser(args.output))
+      model.write_particles(os.path.expanduser(output_path))
 
   print(f'{model.get_time():.1f}')
   model.print_stats()

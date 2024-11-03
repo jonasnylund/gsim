@@ -8,7 +8,6 @@ cc_library(
 	],
 	copts = [
 		"-std=c++17",
-		"-fopenmp",
 		"-O3",
 	],
 	visibility = ["//gsim:__subpackages__"],

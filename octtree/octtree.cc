@@ -303,6 +303,7 @@ int Tree::computeAccelleration(
 // Tree
 void Tree::rebuild(std::vector<Particle>& particles) {
   // Clear the tree of nodes.
+  Timer::byName("Tree: allocate")->set();
   this->clear();
 
   // Calculate the extent of the boundingbox of all particles.
@@ -321,7 +322,6 @@ void Tree::rebuild(std::vector<Particle>& particles) {
       width = std::abs(max[i] - average[i]);
   }
   
-  Timer::byName("Tree: allocate")->set();
   width *= 1.5;	// Have some margin in the size.
   // Center the root node on the average position of all the particles.
   // This should balance the tree somewhat when a few particles are far away.

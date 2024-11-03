@@ -27,6 +27,11 @@ class Model {
     numerical_types::ndarray position,
     numerical_types::ndarray velocity);
 
+  // Return a read only view of the particles.
+  const std::vector<Particle>& listParticles() const {
+    return this->particles;
+  }
+
   // Initialize the model with some random data.
   void randomParticles(int num_particles);
 
