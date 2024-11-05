@@ -18,6 +18,31 @@
 
 
 namespace gsim {
+namespace {
+
+// Compute the accelleration due to gravity.
+void accelleration(
+    numerical_types::real mass,
+    const numerical_types::ndarray& position,
+    const numerical_types::ndarray& particle_position,
+    numerical_types::real epsilon,
+    numerical_types::ndarray& result) {
+  numerical_types::ndarray distance_array;
+  numerical_types::real distance_sq = epsilon;
+  for (int i = 0; i < numerical_types::num_dimensions; i++) {
+    distance_array[i] = position[i] - particle_position[i];
+    distance_sq += distance_array[i] * distance_array[i];
+  }
+  const numerical_types::real distance_sq_inv = 1.0 / distance_sq;
+  const numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
+  const numerical_types::real accelleration = mass * distance_sq_inv;
+
+  for (int i = 0; i < numerical_types::num_dimensions; i++) {
+    result[i] += accelleration * distance_array[i] * distance_inv;
+  }
+}
+
+}
 
 Tree::Node::Node(
     Tree* tree,
@@ -205,99 +230,74 @@ bool Tree::Node::contains(const numerical_types::ndarray& point) const {
   return true;
 }
 
-int Tree::Node::computeAccelleration(
-    const Particle& particle,
-    numerical_types::real theta,
-    numerical_types::real epsilon,
-    numerical_types::ndarray& result) const {
-  int num_calculations = 0;
-  // Calculate the distance between the the object and the cell.
-  numerical_types::real distance_sq = 0;
-  for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    const numerical_types::real d = this->center[i] - particle.position[i];
-    distance_sq += d * d;
-  }
-
-  // The closest a particle in this node can be to the given particle is
-  // the distance between the given particle and the node's center, subtract
-  // the hypothenuse from the node center to its corners. In N dimensions,
-  // this is sqrt(N * width ^ 2).
-  constexpr numerical_types::real root = std::sqrt(numerical_types::num_dimensions);
-  const numerical_types::real distance_to_edge = std::sqrt(distance_sq) - root * this->width;
-
-  if (theta * distance_to_edge > this->width) {
-    // If the particle is sufficiently far away, approximate the accelleration
-    // from the cells mass and center of mass.
-    this->computeAccelleration(
-      this->total_mass, this->center_of_mass, particle, theta, epsilon, result
-    );
-    num_calculations++;
-  }
-  else if (this->hasParticles()) {
-    // If this node is a leaf node, compute the accelleration against each
-    // particle individually.
-    for (int i = 0; i < this->num_particles_local; i++) {
-      if (this->particles[i].particle == &particle) {
-        continue;
-      }
-      // Compute the accelleration against this particle.
-      this->computeAccelleration(
-        this->particles[i].mass,
-        this->particles[i].position,
-        particle,
-        theta,
-        epsilon,
-        result);
-      num_calculations++;
-    }
-  }
-  else if (this->hasChildren()) {
-    // If the node has children, iterate over each and compute the accelleration.
-    for (int i = 0; i < num_subnodes; i++) {
-      if (this->child(i)->num_particles_contained > 0) {
-        num_calculations += this->child(i)->computeAccelleration(
-          particle, theta, epsilon, result
-        );
-      }
-    }
-  }
-  return num_calculations;
-}
-
-void Tree::Node::computeAccelleration(
-    numerical_types::real mass,
-    const numerical_types::ndarray& position,
-    const Particle& particle,
-    numerical_types::real theta,
-    numerical_types::real epsilon,
-    numerical_types::ndarray& result) const {
-  numerical_types::ndarray distance_array;
-  numerical_types::real distance_sq = epsilon;
-  for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    distance_array[i] = position[i] - particle.position[i];
-    distance_sq += distance_array[i] * distance_array[i];
-  }
-  const numerical_types::real distance_sq_inv = 1.0 / distance_sq;
-  // Compute the accelleration due to gravity.
-  const numerical_types::real distance_inv = std::sqrt(distance_sq_inv);
-  const numerical_types::real accelleration = mass * distance_sq_inv;
-
-  for (int i = 0; i < numerical_types::num_dimensions; i++) {
-    result[i] += accelleration * distance_array[i] * distance_inv;
-  }
-}
-
 int Tree::computeAccelleration(
     const Particle& particle,
     numerical_types::real theta,
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const {
-  int computations = this->rootNode()->computeAccelleration(particle, theta, epsilon, result);
+  int num_calculations = 0;
+  std::stack<const Node*> stack;
+  stack.push(this->rootNode());
+
+  while (!stack.empty()) {
+    const Node* current = stack.top();
+    stack.pop();
+    // Calculate the distance between the the object and the cell.
+    numerical_types::real distance_sq = 0.0;
+    for (int i = 0; i < numerical_types::num_dimensions; i++) {
+      const numerical_types::real d = current->center[i] - particle.position[i];
+      distance_sq += d * d;
+    }
+
+    // The closest a particle in this node can be to the given particle is
+    // the distance between the given particle and the node's center, subtract
+    // the hypothenuse from the node center to its corners. In N dimensions,
+    // this is sqrt(N * width ^ 2).
+    constexpr numerical_types::real sqrt_n = std::sqrt(numerical_types::num_dimensions);
+    const numerical_types::real distance_to_edge = std::sqrt(distance_sq) - sqrt_n * current->width;
+
+    if (theta * distance_to_edge > current->width) {
+      // If the particle is sufficiently far away, approximate the accelleration
+      // from the cells mass and center of mass.
+      accelleration(
+        current->total_mass,
+        current->center_of_mass,
+        particle.position,
+        epsilon,
+        result);
+      num_calculations++;
+    }
+    else if (current->hasParticles()) {
+      // If this node is a leaf node, compute the accelleration against each
+      // particle individually.
+      for (int i = 0; i < current->num_particles_local; i++) {
+        if (current->particles[i].particle == &particle) {
+          continue;
+        }
+        // Compute the accelleration against this particle.
+        accelleration(
+          current->particles[i].mass,
+          current->particles[i].position,
+          particle.position,
+          epsilon,
+          result);
+        num_calculations++;
+      }
+    }
+    else if (current->hasChildren()) {
+      // If the node has children, iterate over each and compute the accelleration.
+      for (int i = 0; i < num_subnodes; i++) {
+        if (current->child(i)->num_particles_contained > 0) {
+          stack.push(current->child(i));
+        }
+      }
+    }
+  }
 
   for (int i = 0; i < numerical_types::num_dimensions; i++) {
     result[i] *= numerical_types::G;
   }
-  return computations;
+  return num_calculations;
 }
 
 // Tree

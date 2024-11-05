@@ -82,14 +82,6 @@ class Tree {
     // Checks whether a point is in the bounding box of this node.
     bool contains(const numerical_types::ndarray& point) const;
 
-    // Compute the accelleration due to gravity for the given position. Counts and returns
-    // the number of interactions used to produce the result.
-    int computeAccelleration(
-      const Particle& particle,
-      numerical_types::real theta,
-      numerical_types::real epsilon,
-      numerical_types::ndarray& result) const;
-
     // Returns the total number of particles in this node and all its children.
     int getNumContainedParticles() const { return this->num_particles_contained; }
 
@@ -133,14 +125,6 @@ class Tree {
     void addMass(numerical_types::real mass, const numerical_types::ndarray& position);
 
     void allocateChildren();
-
-    void computeAccelleration(
-      numerical_types::real mass,
-      const numerical_types::ndarray& position,
-      const Particle& particle,
-      numerical_types::real theta,
-      numerical_types::real epsilon,
-      numerical_types::ndarray& result) const;
 
     // Remove a particle from this node.
     void remove(Particle* particle);
