@@ -9,6 +9,7 @@
 #include <memory>
 #include <stack>
 #include <vector>
+#include <deque>
 
 #include <omp.h>
 
@@ -42,7 +43,7 @@ void accelleration(
   }
 }
 
-}
+}  // namespace
 
 Tree::Node::Node(
     Tree* tree,
@@ -236,12 +237,12 @@ int Tree::computeAccelleration(
     numerical_types::real epsilon,
     numerical_types::ndarray& result) const {
   int num_calculations = 0;
-  std::stack<const Node*> stack;
-  stack.push(this->rootNode());
+  std::deque<const Node*> queue;
+  queue.push_back(this->rootNode());
 
-  while (!stack.empty()) {
-    const Node* current = stack.top();
-    stack.pop();
+  while (!queue.empty()) {
+    const Node* current = queue.front();
+    queue.pop_front();
     // Calculate the distance between the the object and the cell.
     numerical_types::real distance_sq = 0.0;
     for (int i = 0; i < numerical_types::num_dimensions; i++) {
@@ -288,7 +289,7 @@ int Tree::computeAccelleration(
       // If the node has children, iterate over each and compute the accelleration.
       for (int i = 0; i < num_subnodes; i++) {
         if (current->child(i)->num_particles_contained > 0) {
-          stack.push(current->child(i));
+          queue.push_back(current->child(i));
         }
       }
     }
