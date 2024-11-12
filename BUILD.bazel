@@ -4,7 +4,8 @@ py_binary(
 	name = "gsim",
 	srcs = ["main.py"],
 	main = "main.py",
-	data = [
+	deps = [
 		"//gsim/model:py_model",
+		"//gsim/viewer",
 	],
 )

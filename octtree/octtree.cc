@@ -358,9 +358,9 @@ bool Tree::relocate(std::vector<Particle>& particles) {
     // Find the position of each particle in the tree in parallel,
     // record the position with the particle.
     if (this->rootNode()->contains(particle.position)) {
-      const numerical_types::NodeKey key = this->getContainingNode(particle.position);
-      particle.containing_node = key;
+      particle.containing_node = this->getContainingNode(particle.position);
     } else {
+      particle.containing_node = numerical_types::emptykey;
       rebuild_required = true;
     }
   }

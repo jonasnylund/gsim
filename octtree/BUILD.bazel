@@ -27,5 +27,6 @@ cc_library(
 		"-fopenmp",
 		"-O3",
 	],
+	linkopts = ["-fopenmp"],
 	visibility = ["//gsim:__subpackages__"],
 )

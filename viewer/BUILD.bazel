@@ -1,0 +1,12 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+py_binary(
+  name = "viewer",
+  srcs = ["viewer.py"],
+  deps = [
+		"//gsim/model:py_model",
+    "@pip//numpy",
+    "@pip//pygame",
+  ],
+  visibility = ["//gsim:__pkg__"],
+)

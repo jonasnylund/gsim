@@ -26,5 +26,5 @@ pybind_extension(
 		":model",
 		"//gsim/octtree:particle",
 	],
-	visibility = ["//gsim:__pkg__"],
+	visibility = ["//gsim:__subpackages__"],
 )

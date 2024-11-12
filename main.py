@@ -3,7 +3,8 @@ import os
 import pathlib
 import time
 
-from gsim.model import py_model
+from gsim.model import py_model  # type: ignore
+from viewer import viewer as viewer_lib
 
 
 def main(args: argparse.Namespace) -> None:
@@ -14,6 +15,8 @@ def main(args: argparse.Namespace) -> None:
     args.theta,
   )
 
+  viewer = viewer_lib.Viewer()
+
   model.random_particles(args.num_particles)
   model.initialize()
   start_time = time.time()
@@ -22,15 +25,18 @@ def main(args: argparse.Namespace) -> None:
     output_path = os.path.expanduser(args.output)
     if os.path.exists(output_path):
       os.remove(output_path)
+  else:
+    output_path = None
 
-  for i in range(args.timesteps):
+  while viewer.update():
     print(f'{model.get_time():.1f}', end='\r')
-    dt = i + 1 - model.get_time()
-    model.step(dt)
-    if args.output is not None:
+    model.step(1)
+
+    viewer.show(model.get_particles())
+
+    if output_path is not None:
       model.write_particles(os.path.expanduser(output_path))
 
-  print(f'{model.get_time():.1f}')
   model.print_stats()
   print(f'{time.time() - start_time:.3f} s')
 
