@@ -38,6 +38,7 @@ def main(args: argparse.Namespace) -> None:
       model.write_particles(os.path.expanduser(output_path))
 
   model.print_stats()
+  print(f'Rendering {" " * 15}- {viewer.rendering_time * 1000:.1f} ms')
   print(f'{time.time() - start_time:.3f} s')
 
 
@@ -50,14 +51,6 @@ if __name__ == '__main__':
     default=300,
     help='Number of particles to simulate',
     metavar='NUMBER'
-  )
-  parser.add_argument(
-    '-n',
-    '--timesteps',
-    type=int,
-    default=300,
-    help='Number of timesteps to simulate',
-    metavar='NUMBER',
   )
   parser.add_argument(
     '--dtime',
@@ -83,7 +76,7 @@ if __name__ == '__main__':
   parser.add_argument(
     '--theta',
     type=float,
-    default=0.3,
+    default=0.4,
     help='Cell width/distance ratio threshold for when to expand the tree during force computations',
     metavar='NUMBER',
   )
