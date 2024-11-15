@@ -5,6 +5,7 @@ py_binary(
 	srcs = ["main.py"],
 	main = "main.py",
 	deps = [
+		"//gsim/controller",
 		"//gsim/model:py_model",
 		"//gsim/viewer",
 	],

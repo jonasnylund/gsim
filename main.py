@@ -3,8 +3,9 @@ import os
 import pathlib
 import time
 
+from gsim.controller import controller as controller_lib
 from gsim.model import py_model  # type: ignore
-from viewer import viewer as viewer_lib
+from gsim.viewer import viewer as viewer_lib
 
 
 def main(args: argparse.Namespace) -> None:
@@ -16,6 +17,7 @@ def main(args: argparse.Namespace) -> None:
   )
 
   viewer = viewer_lib.Viewer()
+  controller = controller_lib.Controller(model, viewer)
 
   model.random_particles(args.num_particles)
   model.initialize()
@@ -28,7 +30,7 @@ def main(args: argparse.Namespace) -> None:
   else:
     output_path = None
 
-  while viewer.update():
+  while controller.update():
     print(f'{model.get_time():.1f}', end='\r')
     model.step(1)
 

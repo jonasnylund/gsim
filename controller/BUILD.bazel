@@ -1,12 +1,13 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
-  name = "viewer",
-  srcs = ["viewer.py"],
+  name = "controller",
+  srcs = ["controller.py"],
   deps = [
 		"//gsim/model:py_model",
+		"//gsim/viewer",
     "@pip//numpy",
     "@pip//pygame",
   ],
-  visibility = ["//gsim:__subpackages__"],
+  visibility = ["//gsim:__pkg__"],
 )
