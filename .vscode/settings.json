@@ -1,0 +1,12 @@
+{
+  "files.associations": {
+    "iosfwd": "cpp"
+  },
+  "python.analysis.typeCheckingMode": "standard",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/../",
+    "${workspaceFolder}/../bazel-bin/gsim/model",
+    "${workspaceFolder}/../external/rules_python~~pip~pip_310_numpy/site-packages",
+    "${workspaceFolder}/../external/rules_python~~pip~pip_310_pygame/site-packages",
+  ],
+}
